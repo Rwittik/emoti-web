@@ -21,8 +21,6 @@ export default function Chat() {
   const [language, setLanguage] = useState("Hindi");
   const [personality, setPersonality] = useState("Friend");
   const [loading, setLoading] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const mediaRecorderRef = useRef(null);
   const boxRef = useRef(null);
 
   useEffect(() => {
@@ -100,67 +98,6 @@ export default function Chat() {
       sendMessage();
     }
   }
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-
-      const chunks = [];
-
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-
-      recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-
-        const res = await fetch("/api/voice", {
-          method: "POST",
-          body: blob,
-        });
-
-        const data = await res.json();
-
-        // Add user's spoken message as text
-        setMessages((m) => [
-          ...m,
-          {
-            id: Date.now(),
-            from: "user",
-            text: data.user_text || "(voice message)",
-            time: Date.now(),
-          },
-        ]);
-
-        // Add EMOTI reply
-        setMessages((m) => [
-          ...m,
-          {
-            id: Date.now() + 1,
-            from: "emoti",
-            text: data.reply_text,
-            time: Date.now(),
-          },
-        ]);
-
-        // Play TTS audio
-        const audio = new Audio("data:audio/mp3;base64," + data.audio);
-        audio.play();
-      };
-
-      recorder.start();
-      setRecording(true);
-    } catch (err) {
-      alert("Microphone permission denied.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-    }
-    setRecording(false);
-  };
 
   return (
     <div className="w-full max-w-2xl bg-slate-900/70 backdrop-blur rounded-2xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
@@ -243,8 +180,6 @@ export default function Chat() {
       {/* input */}
       <footer className="border-t border-slate-800 bg-slate-900/90 px-3 py-2">
         <div className="flex gap-2">
-          
-
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -259,14 +194,6 @@ export default function Chat() {
             className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white px-4 py-2 rounded text-sm"
           >
             {loading ? "…" : "Send"}
-          </button>
-          <button
-            onClick={recording ? stopRecording : startRecording}
-            className={`${
-              recording ? "bg-red-600" : "bg-purple-600"
-            } text-white px-4 py-2 rounded text-sm`}
-          >
-            {recording ? "Stop 🎙" : "Voice 🎤"}
           </button>
         </div>
       </footer>
