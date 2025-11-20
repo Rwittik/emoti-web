@@ -1,7 +1,7 @@
 // api/create-order.js
 
 export const config = {
-  runtime: "nodejs18.x",  // ⭐ REQUIRED for Razorpay to work
+  runtime: "nodejs",  // ⭐ REQUIRED for Razorpay to work
 };
 
 import Razorpay from "razorpay";
