@@ -14,15 +14,26 @@ export default function App() {
     }
   };
 
+  // Small helper for initials if no photoURL
+  const userInitial =
+    user?.displayName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase();
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
       {/* NAVBAR */}
       <nav className="sticky top-0 z-20 bg-slate-950/80 backdrop-blur border-b border-slate-800/80">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-2xl bg-gradient-to-br from-sky-400 via-violet-500 to-fuchsia-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-sky-500/30">
-              E
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              {/* soft outer glow */}
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-sky-500/40 via-violet-500/30 to-rose-500/30 blur-md opacity-70" />
+              {/* logo core */}
+              <div className="relative w-9 h-9 rounded-2xl bg-slate-950 border border-slate-700 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-2xl bg-gradient-to-br from-sky-400 via-violet-500 to-rose-400 flex items-center justify-center text-[14px] font-bold text-slate-950 shadow-md">
+                  🙂
+                </div>
+              </div>
             </div>
             <div className="flex flex-col leading-tight">
               <span className="font-semibold tracking-wide text-sm">
@@ -47,7 +58,7 @@ export default function App() {
             </a>
           </div>
 
-          {/* Right side: auth + premium */}
+          {/* Right side: auth + premium + avatar */}
           <div className="flex items-center gap-3">
             {user && (
               <>
@@ -64,6 +75,24 @@ export default function App() {
                   </span>
                 )}
               </>
+            )}
+
+            {/* profile avatar */}
+            {user && (
+              <div className="flex items-center gap-2">
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full border border-slate-600 object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-xs font-semibold">
+                    {userInitial}
+                  </div>
+                )}
+              </div>
             )}
 
             {user ? (
@@ -114,8 +143,8 @@ export default function App() {
             </h1>
 
             <p className="mt-4 text-sm md:text-base text-slate-300 max-w-xl">
-              Talk about exam stress, breakups, career confusion, or just a
-              bad day — in your own language. EMOTI listens without judging,
+              Talk about exam stress, breakups, career confusion, or just a bad
+              day — in your own language. EMOTI listens without judging,
               reflects your feelings back, and suggests gentle next steps.
             </p>
 
@@ -193,7 +222,7 @@ export default function App() {
                 {/* Chat header */}
                 <div className="px-4 py-2 border-y border-slate-700/70 bg-slate-950/90 flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px] font-bold">
-                    E
+                    🙂
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xs font-medium">EMOTI</span>
@@ -212,13 +241,14 @@ export default function App() {
                   </div>
                   <div className="flex justify-end">
                     <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-sky-500/20 px-3 py-2 border border-sky-500/30 text-sky-50">
-                      That sounds really heavy. 💙  
-                      You’ve been holding a lot inside for a while, right?
+                      That sounds really heavy. 💙 You’ve been holding a lot
+                      inside for a while, right?
                     </div>
                   </div>
                   <div className="flex justify-end">
                     <div className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 border border-emerald-400/40 px-2 py-1 text-[10px] text-emerald-300">
-                      Mood tagged: <span className="font-semibold">Anxious · Overwhelmed</span>
+                      Mood tagged:{" "}
+                      <span className="font-semibold">Anxious · Overwhelmed</span>
                     </div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -341,23 +371,63 @@ export default function App() {
         </div>
       </section>
 
-      {/* CHAT SECTION */}
+      {/* CHAT SECTION (upgraded frame) */}
       <section
         ref={chatRef}
         id="chat"
         className="bg-gradient-to-b from-slate-950 to-slate-900"
       >
-        <div className="max-w-6xl mx-auto px-4 py-10 md:py-14 flex flex-col items-center gap-4">
-          <h2 className="text-xl md:text-2xl font-semibold mb-2 text-center">
+        <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 flex flex-col items-center gap-6">
+          <h2 className="text-xl md:text-2xl font-semibold text-center">
             Try EMOTI now
           </h2>
-          <p className="text-sm text-slate-300 mb-4 text-center max-w-xl">
+          <p className="text-sm text-slate-300 text-center max-w-xl">
             This is an experimental AI companion. It may make mistakes. For
             urgent situations or thoughts of self-harm, please contact a trusted
             person or local helplines immediately.
           </p>
 
-          <Chat />
+          {/* New chat frame */}
+          <div className="w-full max-w-3xl">
+            {/* top strip with small avatars */}
+            <div className="mb-2 flex items-center justify-between text-[11px] text-slate-400">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[10px]">
+                  🙂
+                </div>
+                <span className="font-medium text-slate-200">EMOTI chatroom</span>
+                <span className="hidden sm:inline text-slate-500">
+                  Your messages may be used to improve the AI. Avoid sharing
+                  private details.
+                </span>
+              </div>
+              {user && (
+                <div className="flex items-center gap-1">
+                  <span className="hidden sm:inline">Talking as</span>
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt="You"
+                      className="w-6 h-6 rounded-full border border-slate-600 object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[10px] font-semibold">
+                      {userInitial}
+                    </div>
+                  )}
+                  <span className="max-w-[120px] truncate text-slate-200 text-[11px]">
+                    {user.displayName || user.email}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* glassmorphism container for actual Chat */}
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl shadow-xl shadow-black/40 p-3 md:p-4">
+              <Chat />
+            </div>
+          </div>
 
           <p className="mt-3 text-[11px] text-slate-400 max-w-xl text-center">
             EMOTI does not provide medical, legal, or financial advice. It is
