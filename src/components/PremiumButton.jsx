@@ -1,4 +1,5 @@
 // src/components/PremiumButton.jsx
+import React from "react";                     // ✅ ADD THIS
 import { useAuth } from "../hooks/useAuth";
 import { db } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
@@ -44,7 +45,7 @@ function PremiumButton() {
         description: "Lifetime Premium Access",
         order_id: order.id,
 
-        handler: async function (response) {
+        handler: async function () {
           try {
             // 3. Mark user as premium
             await setDoc(
