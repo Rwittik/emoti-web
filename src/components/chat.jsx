@@ -15,6 +15,7 @@ export default function Chat() {
       from: "emoti",
       text: "Hi — I'm EMOTI. How are you feeling today?",
       time: Date.now(),
+      emotion: "okay",
     },
   ]);
 
@@ -40,7 +41,7 @@ export default function Chat() {
   // TEXT CHAT SEND
   // -----------------------------
   async function sendMessage() {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
     const userMsg = {
       id: Date.now(),
@@ -72,13 +73,16 @@ export default function Chat() {
             from: "emoti",
             text: "Server unavailable — please try again.",
             time: Date.now(),
+            emotion: "stressed",
           },
         ]);
         return;
       }
 
       const data = await res.json();
-      const reply = data.reply || "Thank you for sharing. Tell me more.";
+      const reply =
+        data.reply || "Thank you for sharing. Tell me more.";
+      const emotion = data.emotion || "okay";
 
       setMessages((m) => [
         ...m,
@@ -87,6 +91,7 @@ export default function Chat() {
           from: "emoti",
           text: reply,
           time: Date.now(),
+          emotion,
         },
       ]);
     } catch (e) {
@@ -97,6 +102,7 @@ export default function Chat() {
           from: "emoti",
           text: "Network error. Please try again.",
           time: Date.now(),
+          emotion: "stressed",
         },
       ]);
     } finally {
@@ -116,7 +122,9 @@ export default function Chat() {
   // -----------------------------
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
 
@@ -126,39 +134,53 @@ export default function Chat() {
 
       recorder.onstop = async () => {
         setLoading(true);
-        const blob = new Blob(chunks, { type: "audio/webm" });
+        try {
+          const blob = new Blob(chunks, { type: "audio/webm" });
 
-        const res = await fetch("/api/voice", {
-          method: "POST",
-          body: blob,
-        });
+          const res = await fetch("/api/voice", {
+            method: "POST",
+            body: blob,
+          });
 
-        const data = await res.json();
+          const data = await res.json();
 
-        // Add both messages together (safer)
-        setMessages((m) => [
-          ...m,
-          {
-            id: Date.now(),
-            from: "user",
-            text: data.user_text || "(voice message)",
-            time: Date.now(),
-          },
-          {
-            id: Date.now() + 1,
-            from: "emoti",
-            text: data.reply_text,
-            time: Date.now(),
-          },
-        ]);
+          setMessages((m) => [
+            ...m,
+            {
+              id: Date.now(),
+              from: "user",
+              text: data.user_text || "(voice message)",
+              time: Date.now(),
+            },
+            {
+              id: Date.now() + 1,
+              from: "emoti",
+              text: data.reply_text,
+              time: Date.now(),
+              // voice endpoint currently doesn't send emotion
+              // you can add it later if you extend /api/voice
+            },
+          ]);
 
-        // Play TTS audio
-        if (data.audio) {
-          const audio = new Audio("data:audio/mp3;base64," + data.audio);
-          audio.play();
+          if (data.audio) {
+            const audio = new Audio(
+              "data:audio/mp3;base64," + data.audio
+            );
+            audio.play();
+          }
+        } catch (err) {
+          setMessages((m) => [
+            ...m,
+            {
+              id: Date.now() + 2,
+              from: "emoti",
+              text: "I had trouble processing that voice message.",
+              time: Date.now(),
+            },
+          ]);
+        } finally {
+          setLoading(false);
         }
-
-        setLoading(false);
       };
 
       recorder.start();
@@ -183,7 +205,6 @@ export default function Chat() {
   // -----------------------------
   return (
     <div className="w-full max-w-2xl bg-slate-900/70 backdrop-blur rounded-2xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
-      
       {/* HEADER */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/90">
         <div className="flex items-center gap-3">
@@ -247,6 +268,14 @@ export default function Chat() {
                   : "bg-slate-800 text-left"
               }`}
             >
+              {/* EMOTI label + emotion */}
+              {msg.from === "emoti" && (
+                <div className="text-[10px] uppercase tracking-wide text-sky-300 mb-1">
+                  EMOTI
+                  {msg.emotion ? ` · ${msg.emotion}` : ""}
+                </div>
+              )}
+
               <div>{msg.text}</div>
               <div className="text-[10px] text-slate-400 mt-1">
                 {formatTime(msg.time)}
@@ -255,10 +284,15 @@ export default function Chat() {
           </div>
         ))}
 
+        {/* Typing indicator */}
         {loading && (
-          <div className="flex">
-            <div className="bg-slate-800 p-2 rounded-xl text-xs text-slate-300">
-              Thinking…
+          <div className="flex justify-start mt-1">
+            <div className="bg-slate-800 px-3 py-2 rounded-xl">
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.2s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.1s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
+              </div>
             </div>
           </div>
         )}
