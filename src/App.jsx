@@ -1,13 +1,12 @@
 // src/App.jsx
-
-import PremiumButton from "./components/PremiumButton";
 import React, { useRef } from "react";
 import Chat from "./components/chat";
-import { useAuth } from "./hooks/useAuth"; // 🔐 Firebase auth hook
+import PremiumButton from "./components/PremiumButton";
+import { useAuth } from "./hooks/useAuth";
 
 export default function App() {
   const chatRef = useRef(null);
-  const { user, loginWithGoogle, logout } = useAuth();
+  const { user, isPremium, logout, loginWithGoogle } = useAuth();
 
   const scrollToChat = () => {
     if (chatRef.current) {
@@ -18,15 +17,24 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
       {/* NAVBAR */}
-      <nav className="sticky top-0 z-20 bg-slate-950/80 backdrop-blur border-b border-slate-800">
+      <nav className="sticky top-0 z-20 bg-slate-950/80 backdrop-blur border-b border-slate-800/80">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          {/* Logo */}
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#38bdf8] flex items-center justify-center text-xs font-bold">
+            <div className="w-8 h-8 rounded-2xl bg-gradient-to-br from-sky-400 via-violet-500 to-fuchsia-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-sky-500/30">
               E
             </div>
-            <span className="font-semibold tracking-wide">EMOTI</span>
+            <div className="flex flex-col leading-tight">
+              <span className="font-semibold tracking-wide text-sm">
+                EMOTI
+              </span>
+              <span className="text-[10px] text-slate-400">
+                Feel-safe AI companion
+              </span>
+            </div>
           </div>
 
+          {/* Center links */}
           <div className="hidden md:flex items-center gap-6 text-sm">
             <button onClick={scrollToChat} className="hover:text-sky-300">
               Chat
@@ -39,104 +47,203 @@ export default function App() {
             </a>
           </div>
 
-          {/* Auth + CTA (ONLY THIS BLOCK UPDATED) */}
-          {user ? (
-            <div className="flex items-center gap-3 text-xs md:text-sm">
+          {/* Right side: auth + premium */}
+          <div className="flex items-center gap-3">
+            {user && (
+              <>
+                {isPremium && (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-400/10 text-amber-300 border border-amber-400/40">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Premium active
+                  </span>
+                )}
 
-              {/* ⭐ PREMIUM BUTTON ADDED */}
-              <PremiumButton />
+                {!isPremium && (
+                  <span className="hidden sm:inline text-[11px] text-slate-400">
+                    Unlock deeper support
+                  </span>
+                )}
+              </>
+            )}
 
-              {user.photoURL && (
-                <img
-                  src={user.photoURL}
-                  alt="profile"
-                  className="w-8 h-8 rounded-full border border-slate-700"
-                />
-              )}
-
-              <span className="hidden md:inline max-w-[120px] truncate text-slate-200">
-                {user.displayName || user.email}
-              </span>
-
+            {user ? (
+              <>
+                {!isPremium && (
+                  <div className="hidden sm:block">
+                    <PremiumButton />
+                  </div>
+                )}
+                <button
+                  onClick={logout}
+                  className="text-xs md:text-sm border border-slate-700 px-3 py-1.5 rounded-full hover:border-sky-400 hover:text-sky-300"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
               <button
-                onClick={logout}
-                className="border border-slate-700 px-3 py-1.5 rounded-full hover:border-sky-400 hover:text-sky-300"
+                onClick={loginWithGoogle}
+                className="text-xs md:text-sm bg-sky-500 hover:bg-sky-400 text-white px-3 py-1.5 rounded-full"
               >
-                Logout
+                Sign in
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={loginWithGoogle}
-              className="text-xs md:text-sm bg-sky-500 hover:bg-sky-400 text-white px-3 py-1.5 rounded-full"
-            >
-              Sign in
-            </button>
-          )}
+            )}
+          </div>
         </div>
       </nav>
 
       {/* HERO SECTION */}
-      <section className="border-b border-slate-800 bg-gradient-to-b from-slate-950 to-slate-900">
-        <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 grid md:grid-cols-2 gap-10 items-center">
+      <section className="border-b border-slate-800 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 relative overflow-hidden">
+        {/* subtle gradient blobs */}
+        <div className="pointer-events-none absolute inset-0 opacity-40">
+          <div className="absolute -top-32 -left-16 h-64 w-64 bg-sky-500/20 blur-3xl rounded-full" />
+          <div className="absolute -bottom-24 right-0 h-72 w-72 bg-fuchsia-500/15 blur-3xl rounded-full" />
+        </div>
+
+        <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 grid lg:grid-cols-2 gap-10 items-center relative">
+          {/* Left copy */}
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-sky-400 mb-3">
-              Made for students & young adults
+            <p className="text-xs uppercase tracking-[0.25em] text-sky-400/90 mb-3">
+              Made for students & young adults in India
             </p>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight">
-              An anonymous emotional companion
-              <span className="text-sky-400"> for India</span>.
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight space-y-1">
+              <span>An anonymous</span>
+              <br />
+              <span className="text-sky-300">emotional companion</span>
+              <span> for long nights.</span>
             </h1>
+
             <p className="mt-4 text-sm md:text-base text-slate-300 max-w-xl">
-              Talk about exam stress, breakups, career confusion, or just a bad
-              day — in your own language. EMOTI listens without judging and
-              replies in a warm, human tone.
+              Talk about exam stress, breakups, career confusion, or just a
+              bad day — in your own language. EMOTI listens without judging,
+              reflects your feelings back, and suggests gentle next steps.
             </p>
+
+            {/* Chips row */}
+            <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-slate-200">
+              <span className="px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700/70">
+                Hindi · Odia · Bengali · Tamil · Telugu · Marathi · English
+              </span>
+              <span className="px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700/70">
+                Mood detection & journaling
+              </span>
+              <span className="px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700/70">
+                Works at 2 AM, no login needed
+              </span>
+            </div>
+
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <button
                 onClick={scrollToChat}
-                className="text-xs md:text-sm bg-sky-500 hover:bg-sky-400 text-white px-3 py-1.5 rounded-full"
+                className="bg-sky-500 hover:bg-sky-400 text-white px-5 py-2.5 rounded-full text-sm font-medium shadow-lg shadow-sky-500/30"
               >
-                Start chatting
+                Start chatting now
               </button>
 
-              <span className="text-xs text-slate-400">
-                No login required · Free to try
+              {user && !isPremium && (
+                <div className="flex items-center gap-2">
+                  <PremiumButton />
+                  <span className="text-[11px] text-slate-400">
+                    Lifetime access · one small payment
+                  </span>
+                </div>
+              )}
+
+              {!user && (
+                <span className="text-xs text-slate-400">
+                  No login required to try · Free basic access
+                </span>
+              )}
+            </div>
+
+            {/* “Built for nights when…” strip */}
+            <div className="mt-7 text-[11px] md:text-xs text-slate-300 flex flex-wrap gap-2">
+              <span className="uppercase tracking-[0.2em] text-slate-500">
+                Built for nights when…
+              </span>
+              <span className="px-2 py-1 rounded-md bg-slate-900/80 border border-slate-800">
+                you can’t text anyone
+              </span>
+              <span className="px-2 py-1 rounded-md bg-slate-900/80 border border-slate-800">
+                your brain won’t stop overthinking
+              </span>
+              <span className="px-2 py-1 rounded-md bg-slate-900/80 border border-slate-800">
+                you just want someone to listen
               </span>
             </div>
           </div>
 
-          {/* Quick stats / highlights */}
-          <div className="space-y-4 text-sm">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-xs text-slate-400 mb-1">
-                Multilingual support
-              </p>
-              <p className="text-sm">
-                Chat in{" "}
-                <span className="text-sky-300">
-                  Hindi, Odia, Bengali, Tamil, Telugu, Marathi, English
-                </span>{" "}
-                and more.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-xs text-slate-400 mb-1">
-                Anonymous & always available
-              </p>
-              <p className="text-sm">
-                No awkward small talk. EMOTI is here at{" "}
-                <span className="text-sky-300">2 AM</span> when you can’t text
-                anyone else.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-xs text-slate-400 mb-1">Not a therapist</p>
-              <p className="text-sm">
-                EMOTI is an AI companion, not a replacement for professional
-                help. For crisis situations, you’ll always see helpline
-                guidance.
-              </p>
+          {/* Right: phone mock / hero visual */}
+          <div className="flex justify-center lg:justify-end">
+            <div className="relative">
+              {/* Glow */}
+              <div className="absolute -inset-3 bg-gradient-to-tr from-sky-500/40 via-violet-500/30 to-fuchsia-500/30 blur-3xl opacity-60" />
+
+              {/* Phone body */}
+              <div className="relative w-60 md:w-64 h-[420px] rounded-[2rem] bg-slate-900 border border-slate-700/80 shadow-2xl shadow-sky-900/60 flex flex-col overflow-hidden">
+                {/* Notch */}
+                <div className="flex items-center justify-between px-4 pt-2 pb-1 text-[10px] text-slate-400">
+                  <span>2:04 AM</span>
+                  <span className="flex gap-1 items-center">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Online
+                  </span>
+                </div>
+
+                {/* Chat header */}
+                <div className="px-4 py-2 border-y border-slate-700/70 bg-slate-950/90 flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px] font-bold">
+                    E
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">EMOTI</span>
+                    <span className="text-[10px] text-slate-400">
+                      “Tell me everything, I’m listening.”
+                    </span>
+                  </div>
+                </div>
+
+                {/* Messages preview */}
+                <div className="flex-1 px-3 py-3 space-y-2 text-[11px] overflow-hidden bg-gradient-to-b from-slate-950 to-slate-900">
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] rounded-2xl rounded-tl-sm bg-slate-800/80 px-3 py-2">
+                      Hey EMOTI, I feel stuck and anxious about my future.
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-sky-500/20 px-3 py-2 border border-sky-500/30 text-sky-50">
+                      That sounds really heavy. 💙  
+                      You’ve been holding a lot inside for a while, right?
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <div className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 border border-emerald-400/40 px-2 py-1 text-[10px] text-emerald-300">
+                      Mood tagged: <span className="font-semibold">Anxious · Overwhelmed</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <span className="px-2 py-1 rounded-full bg-slate-900/90 border border-slate-700">
+                      Write 3 fears down
+                    </span>
+                    <span className="px-2 py-1 rounded-full bg-slate-900/90 border border-slate-700">
+                      Reframe 1 thought
+                    </span>
+                    <span className="px-2 py-1 rounded-full bg-slate-900/90 border border-slate-700">
+                      2-minute breathing
+                    </span>
+                  </div>
+                </div>
+
+                {/* Input bar */}
+                <div className="px-3 py-2 bg-slate-950/95 border-t border-slate-700/80 flex items-center gap-2">
+                  <div className="flex-1 h-8 rounded-full bg-slate-900/90 border border-slate-700/80 text-[10px] text-slate-500 flex items-center px-3">
+                    Tell EMOTI how you feel…
+                  </div>
+                  <div className="h-8 w-8 rounded-full bg-sky-500 flex items-center justify-center text-[12px] text-white">
+                    ➤
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -157,8 +264,8 @@ export default function App() {
                 1 · Share how you feel
               </div>
               <p className="text-slate-300">
-                Type exactly what’s on your mind — in any mix of English +
-                local language. No need to sound “perfect”.
+                Type exactly what’s on your mind — in any mix of English + local
+                language. No need to sound “perfect”.
               </p>
             </div>
             <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
@@ -211,6 +318,25 @@ export default function App() {
                 that it’s not a human therapist and what data is stored.
               </p>
             </div>
+          </div>
+
+          {/* premium teaser row */}
+          <div className="mt-8 rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <div className="text-sm">
+              <div className="inline-flex items-center gap-2 rounded-full bg-amber-400/10 border border-amber-400/50 px-3 py-1 text-[11px] text-amber-300 mb-2">
+                ⭐ EMOTI Premium
+              </div>
+              <p className="text-slate-200">
+                Unlock deeper emotional analysis, mood tracking, and AI image
+                reflections of your feelings — designed to make your journaling
+                and healing more visual.
+              </p>
+            </div>
+            {user && !isPremium && (
+              <div className="shrink-0">
+                <PremiumButton />
+              </div>
+            )}
           </div>
         </div>
       </section>
