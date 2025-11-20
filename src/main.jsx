@@ -6,20 +6,15 @@ import PremiumSuccess from "./pages/PremiumSuccess.jsx";
 import "./index.css";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-// ⭐ Import AuthProvider
 import { AuthProvider } from "./hooks/useAuth";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    {/* ⭐ Wrap entire app with AuthProvider */}
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/premium-success" element={<PremiumSuccess />} />
-
-          {/* Firebase redirect handler */}
           <Route path="*" element={<App />} />
         </Routes>
       </BrowserRouter>

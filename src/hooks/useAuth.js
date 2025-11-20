@@ -1,16 +1,21 @@
 // src/hooks/useAuth.js
-import { useEffect, useState, createContext, useContext } from "react";
+import React, {
+  useEffect,
+  useState,
+  createContext,
+  useContext,
+} from "react";
 import { auth, googleProvider, db } from "../firebase";
 import { signInWithPopup, onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
 // Create context
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
-// Provider wrapper
+// Provider wrapper (NO JSX here – uses React.createElement)
 export function AuthProvider({ children }) {
   const authValue = useProvideAuth();
-  return <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>;
+  return React.createElement(AuthContext.Provider, { value: authValue }, children);
 }
 
 // Hook to use Auth anywhere
@@ -28,27 +33,21 @@ function useProvideAuth() {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        // Load Firestore user profile
+        // Firestore user profile reference
         const userRef = doc(db, "users", firebaseUser.uid);
         const snap = await getDoc(userRef);
 
         if (!snap.exists()) {
           // First-time user → create document
-          await setDoc(
-            userRef,
-            {
-              email: firebaseUser.email,
-              createdAt: Date.now(),
-              premium: false,
-              activePremium: false,
-            },
-            { merge: true }
-          );
-          setProfile({
+          const baseProfile = {
             email: firebaseUser.email,
+            createdAt: Date.now(),
             premium: false,
             activePremium: false,
-          });
+          };
+
+          await setDoc(userRef, baseProfile, { merge: true });
+          setProfile(baseProfile);
         } else {
           setProfile(snap.data());
         }
@@ -70,7 +69,7 @@ function useProvideAuth() {
     await signOut(auth);
   };
 
-  // Premium logic — very simple
+  // Simple premium flag
   const isPremium = profile?.activePremium === true;
 
   return {
