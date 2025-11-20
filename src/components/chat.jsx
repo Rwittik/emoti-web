@@ -1,7 +1,7 @@
 // src/components/Chat.jsx
 import React, { useEffect, useRef, useState } from "react";
 
-const API_URL = "/api/chat"; // works with mock (proxy) + real Vercel api/chat
+const API_URL = "/api/chat";
 
 function formatTime(ts) {
   const d = new Date(ts);
@@ -17,18 +17,28 @@ export default function Chat() {
       time: Date.now(),
     },
   ]);
+
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState("Hindi");
   const [personality, setPersonality] = useState("Friend");
   const [loading, setLoading] = useState(false);
+
+  // Voice states
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+
   const boxRef = useRef(null);
 
+  // Auto scroll chat
   useEffect(() => {
     if (boxRef.current) {
       boxRef.current.scrollTop = boxRef.current.scrollHeight;
     }
   }, [messages]);
 
+  // -----------------------------
+  // TEXT CHAT SEND
+  // -----------------------------
   async function sendMessage() {
     if (!input.trim()) return;
 
@@ -38,12 +48,13 @@ export default function Chat() {
       text: input.trim(),
       time: Date.now(),
     };
+
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
 
     try {
-      const res = await fetch(API_ROUTE, {
+      const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -68,6 +79,7 @@ export default function Chat() {
 
       const data = await res.json();
       const reply = data.reply || "Thank you for sharing. Tell me more.";
+
       setMessages((m) => [
         ...m,
         {
@@ -99,9 +111,80 @@ export default function Chat() {
     }
   }
 
+  // -----------------------------
+  // VOICE RECORDING START
+  // -----------------------------
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      const chunks = [];
+
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+
+      recorder.onstop = async () => {
+        setLoading(true);
+        const blob = new Blob(chunks, { type: "audio/webm" });
+
+        const res = await fetch("/api/voice", {
+          method: "POST",
+          body: blob,
+        });
+
+        const data = await res.json();
+
+        // Add both messages together (safer)
+        setMessages((m) => [
+          ...m,
+          {
+            id: Date.now(),
+            from: "user",
+            text: data.user_text || "(voice message)",
+            time: Date.now(),
+          },
+          {
+            id: Date.now() + 1,
+            from: "emoti",
+            text: data.reply_text,
+            time: Date.now(),
+          },
+        ]);
+
+        // Play TTS audio
+        if (data.audio) {
+          const audio = new Audio("data:audio/mp3;base64," + data.audio);
+          audio.play();
+        }
+
+        setLoading(false);
+      };
+
+      recorder.start();
+      setRecording(true);
+    } catch (err) {
+      alert("Microphone permission denied.");
+    }
+  };
+
+  // -----------------------------
+  // VOICE RECORDING STOP
+  // -----------------------------
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+    }
+    setRecording(false);
+  };
+
+  // -----------------------------
+  // UI RENDER
+  // -----------------------------
   return (
     <div className="w-full max-w-2xl bg-slate-900/70 backdrop-blur rounded-2xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
-      {/* header row inside card */}
+      
+      {/* HEADER */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/90">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#38bdf8] flex items-center justify-center text-white font-bold text-lg">
@@ -114,6 +197,8 @@ export default function Chat() {
             </p>
           </div>
         </div>
+
+        {/* LANGUAGE + PERSONALITY */}
         <div className="flex items-center gap-2">
           <select
             value={language}
@@ -128,6 +213,7 @@ export default function Chat() {
             <option>Marathi</option>
             <option>English</option>
           </select>
+
           <select
             value={personality}
             onChange={(e) => setPersonality(e.target.value)}
@@ -142,7 +228,7 @@ export default function Chat() {
         </div>
       </header>
 
-      {/* messages */}
+      {/* CHAT MESSAGES */}
       <main
         ref={boxRef}
         className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/70"
@@ -168,6 +254,7 @@ export default function Chat() {
             </div>
           </div>
         ))}
+
         {loading && (
           <div className="flex">
             <div className="bg-slate-800 p-2 rounded-xl text-xs text-slate-300">
@@ -177,7 +264,7 @@ export default function Chat() {
         )}
       </main>
 
-      {/* input */}
+      {/* INPUT + VOICE */}
       <footer className="border-t border-slate-800 bg-slate-900/90 px-3 py-2">
         <div className="flex gap-2">
           <textarea
@@ -188,12 +275,22 @@ export default function Chat() {
             placeholder="Write something…"
             className="flex-1 resize-none border border-slate-700 bg-slate-950 rounded px-3 py-2 text-sm text-slate-100"
           />
+
           <button
             onClick={sendMessage}
             disabled={loading}
             className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white px-4 py-2 rounded text-sm"
           >
             {loading ? "…" : "Send"}
+          </button>
+
+          <button
+            onClick={recording ? stopRecording : startRecording}
+            className={`${
+              recording ? "bg-red-600" : "bg-purple-600"
+            } text-white px-4 py-2 rounded text-sm`}
+          >
+            {recording ? "Stop 🎙" : "Voice 🎤"}
           </button>
         </div>
       </footer>

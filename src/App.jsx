@@ -1,4 +1,8 @@
 // src/App.jsx
+const [recording, setRecording] = useState(false);
+const mediaRecorderRef = useRef(null);
+
+
 import React, { useRef } from "react";
 import Chat from "./components/chat";
 
