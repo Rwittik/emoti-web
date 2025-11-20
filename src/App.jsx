@@ -1,4 +1,5 @@
 // src/App.jsx
+import PremiumChat from "./components/PremiumChat";
 import React, { useRef, useState } from "react";
 import Chat from "./components/chat";
 import PremiumButton from "./components/PremiumButton";
@@ -51,9 +52,7 @@ export default function App() {
               </div>
             </div>
             <div className="flex flex-col leading-tight">
-              <span className="font-semibold tracking-wide text-sm">
-                EMOTI
-              </span>
+              <span className="font-semibold tracking-wide text-sm">EMOTI</span>
               <span className="text-[10px] text-slate-400">
                 Feel-safe AI companion
               </span>
@@ -204,8 +203,8 @@ export default function App() {
               </div>
 
               {/* Premium chat container (reuses Chat component for now) */}
-              <div className="rounded-3xl border border-amber-400/40 bg-slate-900/90 backdrop-blur-xl shadow-xl shadow-amber-900/40 p-3 md:p-4">
-                <Chat />
+              <div className="rounded-3xl border border-amber-400/0 bg-transparent p-0 md:p-0">
+                <PremiumChat />
               </div>
             </div>
 
@@ -425,7 +424,10 @@ export default function App() {
           </section>
 
           {/* FEATURES */}
-          <section id="features" className="border-b border-slate-800 bg-slate-950">
+          <section
+            id="features"
+            className="border-b border-slate-800 bg-slate-950"
+          >
             <div className="max-w-6xl mx-auto px-4 py-10 md:py-14">
               <h2 className="text-xl md:text-2xl font-semibold mb-6">
                 Built for Indian students & young professionals
@@ -504,8 +506,8 @@ export default function App() {
                       EMOTI chatroom
                     </span>
                     <span className="hidden sm:inline text-slate-500">
-                      Your messages may be used to improve the AI. Avoid
-                      sharing private details.
+                      Your messages may be used to improve the AI. Avoid sharing
+                      private details.
                     </span>
                   </div>
                   {user && (
