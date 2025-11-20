@@ -13,6 +13,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/premium-success" element={<PremiumSuccess />} />
+
+        {/* ⭐ IMPORTANT FIX: Firebase redirect handler */}
+        <Route path="*" element={<App />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
