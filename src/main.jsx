@@ -7,16 +7,22 @@ import "./index.css";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
+// ⭐ Import AuthProvider
+import { AuthProvider } from "./hooks/useAuth";
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/premium-success" element={<PremiumSuccess />} />
+    {/* ⭐ Wrap entire app with AuthProvider */}
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<App />} />
+          <Route path="/premium-success" element={<PremiumSuccess />} />
 
-        {/* ⭐ IMPORTANT FIX: Firebase redirect handler */}
-        <Route path="*" element={<App />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Firebase redirect handler */}
+          <Route path="*" element={<App />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   </React.StrictMode>
 );
