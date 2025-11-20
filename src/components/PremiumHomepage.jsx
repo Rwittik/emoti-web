@@ -1,7 +1,7 @@
 // src/components/PremiumHomepage.jsx
 import React from "react";
 
-export default function PremiumHomepage({ scrollToChat, user }) {
+export default function PremiumHomepage({ onOpenPremiumChat, user }) {
   const firstName =
     user?.displayName?.split(" ")[0] ||
     user?.email?.split("@")[0] ||
@@ -9,7 +9,6 @@ export default function PremiumHomepage({ scrollToChat, user }) {
 
   return (
     <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 min-h-screen pb-20">
-
       {/* PREMIUM BANNER */}
       <section className="relative border-b border-amber-400/20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 blur-3xl opacity-50" />
@@ -31,17 +30,16 @@ export default function PremiumHomepage({ scrollToChat, user }) {
           </p>
 
           <button
-            onClick={scrollToChat}
+            onClick={onOpenPremiumChat}
             className="mt-6 px-6 py-3 rounded-full bg-amber-400/90 hover:bg-amber-300 text-slate-900 shadow-lg font-semibold text-sm md:text-base transition"
           >
-            Continue chatting
+            Open Premium chatroom
           </button>
         </div>
       </section>
 
       {/* DASHBOARD Section */}
       <section className="max-w-6xl mx-auto px-5 py-10 grid md:grid-cols-3 gap-6">
-
         {/* Mood Graph Card */}
         <div className="md:col-span-2 rounded-2xl bg-slate-900/70 border border-slate-800 p-5 shadow-xl">
           <h3 className="text-lg font-semibold mb-1">This week&apos;s mood trend</h3>
@@ -78,11 +76,11 @@ export default function PremiumHomepage({ scrollToChat, user }) {
         </div>
       </section>
 
-      {/* PREMIUM FEATURES */}
+      {/* PREMIUM FEATURES / NAV */}
       <section className="max-w-6xl mx-auto px-5 py-10">
         <h2 className="text-xl font-semibold mb-4">Your premium tools</h2>
 
-        <div className="grid md:grid-cols-3 gap-6 text-sm">
+        <div className="grid md:grid-cols-3 gap-6 text-sm mb-8">
           <div className="rounded-xl bg-slate-900/70 border border-slate-800 p-4">
             <h4 className="font-medium mb-1">🧠 Deep emotional analysis</h4>
             <p className="text-slate-400">
@@ -100,6 +98,33 @@ export default function PremiumHomepage({ scrollToChat, user }) {
             <p className="text-slate-400">
               Your personal mental health diary, summarising highs, lows, and patterns.
             </p>
+          </div>
+        </div>
+
+        {/* Quick premium navigation */}
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <div className="text-sm text-slate-200">
+            <div className="text-[11px] uppercase tracking-[0.2em] text-amber-300 mb-1">
+              Quick premium navigation
+            </div>
+            <p>
+              Jump into your premium chatroom, review your mood history, or explore AI-based
+              visuals of your feelings. Some sections are placeholders you can build later.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <button
+              onClick={onOpenPremiumChat}
+              className="px-3 py-1.5 rounded-full bg-amber-400 text-slate-900 font-medium hover:bg-amber-300"
+            >
+              Open premium chatroom
+            </button>
+            <button className="px-3 py-1.5 rounded-full border border-amber-300/50 text-amber-200">
+              Mood history (soon)
+            </button>
+            <button className="px-3 py-1.5 rounded-full border border-amber-300/50 text-amber-200">
+              AI image studio (soon)
+            </button>
           </div>
         </div>
       </section>
