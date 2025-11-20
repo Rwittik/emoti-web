@@ -1,5 +1,6 @@
 // src/App.jsx
 
+import PremiumButton from "./components/PremiumButton";
 import React, { useRef } from "react";
 import Chat from "./components/chat";
 import { useAuth } from "./hooks/useAuth"; // 🔐 Firebase auth hook
@@ -38,9 +39,13 @@ export default function App() {
             </a>
           </div>
 
-          {/* Auth + CTA */}
+          {/* Auth + CTA (ONLY THIS BLOCK UPDATED) */}
           {user ? (
             <div className="flex items-center gap-3 text-xs md:text-sm">
+
+              {/* ⭐ PREMIUM BUTTON ADDED */}
+              <PremiumButton />
+
               {user.photoURL && (
                 <img
                   src={user.photoURL}
@@ -48,9 +53,11 @@ export default function App() {
                   className="w-8 h-8 rounded-full border border-slate-700"
                 />
               )}
+
               <span className="hidden md:inline max-w-[120px] truncate text-slate-200">
                 {user.displayName || user.email}
               </span>
+
               <button
                 onClick={logout}
                 className="border border-slate-700 px-3 py-1.5 rounded-full hover:border-sky-400 hover:text-sky-300"
@@ -88,10 +95,11 @@ export default function App() {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <button
                 onClick={scrollToChat}
-                className="bg-sky-500 hover:bg-sky-400 text-white px-5 py-2.5 rounded-full text-sm font-medium"
+                className="text-xs md:text-sm bg-sky-500 hover:bg-sky-400 text-white px-3 py-1.5 rounded-full"
               >
-                Start chatting now
+                Start chatting
               </button>
+
               <span className="text-xs text-slate-400">
                 No login required · Free to try
               </span>
@@ -101,7 +109,9 @@ export default function App() {
           {/* Quick stats / highlights */}
           <div className="space-y-4 text-sm">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-xs text-slate-400 mb-1">Multilingual support</p>
+              <p className="text-xs text-slate-400 mb-1">
+                Multilingual support
+              </p>
               <p className="text-sm">
                 Chat in{" "}
                 <span className="text-sky-300">
@@ -165,8 +175,8 @@ export default function App() {
                 3 · Get gentle suggestions
               </div>
               <p className="text-slate-300">
-                Receive small, practical steps you can try — journaling
-                prompts, reframing, or simple self-care ideas.
+                Receive small, practical steps you can try — journaling prompts,
+                reframing, or simple self-care ideas.
               </p>
             </div>
           </div>
@@ -217,8 +227,8 @@ export default function App() {
           </h2>
           <p className="text-sm text-slate-300 mb-4 text-center max-w-xl">
             This is an experimental AI companion. It may make mistakes. For
-            urgent situations or thoughts of self-harm, please contact a
-            trusted person or local helplines immediately.
+            urgent situations or thoughts of self-harm, please contact a trusted
+            person or local helplines immediately.
           </p>
 
           <Chat />
