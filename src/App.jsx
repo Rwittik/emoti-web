@@ -3,6 +3,7 @@ import React, { useRef } from "react";
 import Chat from "./components/chat";
 import PremiumButton from "./components/PremiumButton";
 import { useAuth } from "./hooks/useAuth";
+import PremiumHomepage from "./components/PremiumHomepage";
 
 export default function App() {
   const chatRef = useRef(null);
@@ -31,7 +32,7 @@ export default function App() {
               {/* logo core */}
               <div className="relative w-9 h-9 rounded-2xl bg-slate-950 border border-slate-700 flex items-center justify-center">
                 <div className="w-7 h-7 rounded-2xl bg-gradient-to-br from-sky-400 via-violet-500 to-rose-400 flex items-center justify-center text-[14px] font-bold text-slate-950 shadow-md">
-                  🙂
+                  🙂 
                 </div>
               </div>
             </div>
@@ -121,7 +122,12 @@ export default function App() {
         </div>
       </nav>
 
-      {/* HERO SECTION */}
+      {/* PREMIUM HOMEPAGE (only for premium users) */}
+      {user && isPremium && (
+        <PremiumHomepage scrollToChat={scrollToChat} user={user} />
+      )}
+
+      {/* HERO SECTION (shown for everyone – free + premium) */}
       <section className="border-b border-slate-800 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 relative overflow-hidden">
         {/* subtle gradient blobs */}
         <div className="pointer-events-none absolute inset-0 opacity-40">
@@ -222,7 +228,7 @@ export default function App() {
                 {/* Chat header */}
                 <div className="px-4 py-2 border-y border-slate-700/70 bg-slate-950/90 flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px] font-bold">
-                    🙂
+                    🙂 
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xs font-medium">EMOTI</span>
@@ -393,7 +399,7 @@ export default function App() {
             <div className="mb-2 flex items-center justify-between text-[11px] text-slate-400">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[10px]">
-                  🙂
+                  🙂 
                 </div>
                 <span className="font-medium text-slate-200">EMOTI chatroom</span>
                 <span className="hidden sm:inline text-slate-500">
