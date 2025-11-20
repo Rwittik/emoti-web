@@ -6,17 +6,14 @@ import PremiumSuccess from "./pages/PremiumSuccess.jsx";
 import "./index.css";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./hooks/useAuth";  // ⭐ IMPORTANT
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <AuthProvider>   {/* ⭐ WRAP EVERYTHING HERE */}
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<App />} />
-          <Route path="/premium-success" element={<PremiumSuccess />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/premium-success" element={<PremiumSuccess />} />
+      </Routes>
+    </BrowserRouter>
   </React.StrictMode>
 );
