@@ -1,101 +1,70 @@
-// pages/api/voice.js  (or app/api/voice/route.js with small signature change)
+// api/voice.js
 import OpenAI from "openai";
 
 export const config = {
-  runtime: "nodejs18.x",
+  api: {
+    bodyParser: false,
+  },
 };
 
-export default async function handler(req) {
-  if (req.method && req.method !== "POST") {
-    return new Response(
-      JSON.stringify({ error: "Method not allowed" }),
-      { status: 405, headers: { "Content-Type": "application/json" } }
-    );
-  }
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export default async function handler(req, res) {
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "POST only." });
 
   try {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const audioBuffer = Buffer.concat(chunks);
 
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Missing API key" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 1️⃣ Read incoming audio from the request
-    const arrayBuffer = await req.arrayBuffer();
-    const audioBlob = new Blob([arrayBuffer], { type: "audio/webm" });
-
-    // 2️⃣ Transcribe with GPT-4o Transcribe
+    // 1. Speech-to-Text
     const transcription = await client.audio.transcriptions.create({
-      file: audioBlob,
-      model: "gpt-4o-transcribe", // latest STT model :contentReference[oaicite:3]{index=3}
-      // response_format: "json", // default returns { text: "..." }
+      file: {
+        buffer: audioBuffer,
+        mimetype: "audio/webm",
+        filename: "voice.webm",
+      },
+      model: "gpt-4o-transcribe",
     });
 
-    const user_text = (transcription.text || "").trim();
+    const userText = transcription.text || "";
 
-    if (!user_text) {
-      return new Response(
-        JSON.stringify({
-          error: "Could not understand audio",
-          user_text: "",
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 3️⃣ Get EMOTI's reply (text)
-    const chat = await client.chat.completions.create({
-      model: "gpt-4.1-mini", // recommended small model now :contentReference[oaicite:4]{index=4}
+    // 2. EMOTI reply
+    const aiReply = await client.chat.completions.create({
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "You are EMOTI — an emotional support AI. Be warm, caring, and supportive. You are not a therapist, and you must encourage users in crisis to seek immediate human help.",
+            "You are EMOTI — a calm, warm emotional companion. Be short, kind, supportive.",
         },
-        { role: "user", content: user_text },
+        { role: "user", content: userText },
       ],
     });
 
-    const reply_text =
-      chat.choices?.[0]?.message?.content ||
-      "I’m here with you. Can you tell me a bit more about how you’re feeling? 💙";
+    const replyText = aiReply.choices[0].message.content;
 
-    // 4️⃣ Convert reply text to speech
-    const audio = await client.audio.speech.create({
-      model: "gpt-4o-mini-tts", // TTS model :contentReference[oaicite:5]{index=5}
-      voice: "coral", // use a supported voice
-      input: reply_text,
+    // 3. Text → Speech
+    const tts = await client.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      input: replyText,
       format: "mp3",
     });
 
-    // 5️⃣ Turn binary audio into base64 without Buffer (Edge-safe)
-    const audioArrayBuffer = await audio.arrayBuffer();
-    const bytes = new Uint8Array(audioArrayBuffer);
-    let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const audioBase64 = btoa(binary);
+    const ttsAudio = Buffer.from(await tts.arrayBuffer());
 
-    return new Response(
-      JSON.stringify({
-        user_text,
-        reply_text,
-        audio: audioBase64,
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    // Respond with both text & audio
+    res.status(200).json({
+      user_text: userText,
+      reply_text: replyText,
+      audio: ttsAudio.toString("base64"),
+    });
   } catch (err) {
-    console.error("Voice API error:", err);
-    return new Response(
-      JSON.stringify({ error: err.message || "Voice API failed" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    console.log(err);
+    res.status(500).json({ error: "Voice processing failed" });
   }
 }
