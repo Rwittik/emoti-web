@@ -1,7 +1,7 @@
 // src/components/Chat.jsx
 import React, { useEffect, useRef, useState } from "react";
 
-const API_ROUTE = "/api/chat"; // works with mock (proxy) + real Vercel api/chat
+const API_URL = "/api/chat"; // works with mock (proxy) + real Vercel api/chat
 
 function formatTime(ts) {
   const d = new Date(ts);
