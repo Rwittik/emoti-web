@@ -2,12 +2,11 @@
 
 import React, { useRef } from "react";
 import Chat from "./components/chat";
-import { useAuth } from "./hooks/useAuth";      // ⬅ new
-import Journal from "./components/Journal";     // ⬅ new (optional, but recommended)
+import { useAuth } from "./hooks/useAuth"; // 🔐 Firebase auth hook
 
 export default function App() {
   const chatRef = useRef(null);
-  const { user, loadingAuth, loginWithGoogle, logout } = useAuth();
+  const { user, loginWithGoogle, logout } = useAuth();
 
   const scrollToChat = () => {
     if (chatRef.current) {
@@ -39,54 +38,34 @@ export default function App() {
             </a>
           </div>
 
-          {/* Right side: auth + CTA */}
-          <div className="flex items-center gap-3 text-xs md:text-sm">
-            {loadingAuth ? (
-              <span className="text-[11px] text-slate-400">Checking…</span>
-            ) : user ? (
-              <>
-                <button
-                  onClick={scrollToChat}
-                  className="hidden sm:inline-flex bg-sky-500 hover:bg-sky-400 text-white px-3 py-1.5 rounded-full"
-                >
-                  Open chat
-                </button>
-                <div className="flex items-center gap-2">
-                  {user.photoURL && (
-                    <img
-                      src={user.photoURL}
-                      alt={user.displayName || "User"}
-                      className="w-7 h-7 rounded-full border border-slate-700"
-                    />
-                  )}
-                  <span className="hidden md:inline max-w-[120px] truncate text-slate-200">
-                    {user.displayName || user.email}
-                  </span>
-                </div>
-                <button
-                  onClick={logout}
-                  className="border border-slate-700 px-2 py-1 rounded-full text-[11px] hover:border-sky-400 hover:text-sky-300"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={loginWithGoogle}
-                  className="hidden sm:inline-flex border border-slate-700 px-3 py-1.5 rounded-full hover:border-sky-400 hover:text-sky-300"
-                >
-                  Sign in
-                </button>
-                <button
-                  onClick={scrollToChat}
-                  className="bg-sky-500 hover:bg-sky-400 text-white px-3 py-1.5 rounded-full"
-                >
-                  Start chatting
-                </button>
-              </>
-            )}
-          </div>
+          {/* Auth + CTA */}
+          {user ? (
+            <div className="flex items-center gap-3 text-xs md:text-sm">
+              {user.photoURL && (
+                <img
+                  src={user.photoURL}
+                  alt="profile"
+                  className="w-8 h-8 rounded-full border border-slate-700"
+                />
+              )}
+              <span className="hidden md:inline max-w-[120px] truncate text-slate-200">
+                {user.displayName || user.email}
+              </span>
+              <button
+                onClick={logout}
+                className="border border-slate-700 px-3 py-1.5 rounded-full hover:border-sky-400 hover:text-sky-300"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={loginWithGoogle}
+              className="text-xs md:text-sm bg-sky-500 hover:bg-sky-400 text-white px-3 py-1.5 rounded-full"
+            >
+              Sign in
+            </button>
+          )}
         </div>
       </nav>
 
@@ -114,9 +93,7 @@ export default function App() {
                 Start chatting now
               </button>
               <span className="text-xs text-slate-400">
-                {user
-                  ? "Signed in · Your journal is private to you"
-                  : "No login required · Sign in to save your journal"}
+                No login required · Free to try
               </span>
             </div>
           </div>
@@ -228,7 +205,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* CHAT + JOURNAL SECTION */}
+      {/* CHAT SECTION */}
       <section
         ref={chatRef}
         id="chat"
@@ -245,9 +222,6 @@ export default function App() {
           </p>
 
           <Chat />
-
-          {/* Protected journaling – shows prompt to sign in if user is null */}
-          <Journal />
 
           <p className="mt-3 text-[11px] text-slate-400 max-w-xl text-center">
             EMOTI does not provide medical, legal, or financial advice. It is
