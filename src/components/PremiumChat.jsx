@@ -1,3 +1,4 @@
+// src/components/PremiumChat.jsx
 import React, { useEffect, useRef, useState } from "react";
 
 const API_URL = "/api/chat";
@@ -28,16 +29,12 @@ export default function PremiumChat() {
 
   const boxRef = useRef(null);
 
-  // Auto scroll chat
   useEffect(() => {
     if (boxRef.current) {
       boxRef.current.scrollTop = boxRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // -----------------------------
-  // TEXT CHAT SEND
-  // -----------------------------
   async function sendMessage() {
     if (!input.trim() || loading) return;
 
@@ -115,9 +112,6 @@ export default function PremiumChat() {
     }
   }
 
-  // -----------------------------
-  // VOICE RECORDING
-  // -----------------------------
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -193,13 +187,10 @@ export default function PremiumChat() {
     setRecording(false);
   };
 
-  // -----------------------------
-  // UI RENDER (premium styling)
-  // -----------------------------
   return (
-    <div className="w-full max-w-2xl mx-auto bg-gradient-to-b from-slate-950/90 via-slate-900/95 to-slate-950/90 rounded-[2rem] border border-amber-400/50 shadow-[0_0_40px_rgba(250,204,21,0.25)] flex flex-col overflow-hidden">
+    <div className="w-full max-w-4xl mx-auto bg-gradient-to-b from-slate-950/90 via-slate-900/95 to-slate-950/90 rounded-[2rem] border border-amber-400/50 shadow-[0_0_50px_rgba(250,204,21,0.25)] flex flex-col overflow-hidden">
       {/* HEADER */}
-      <header className="flex items-center justify-between px-5 py-4 border-b border-amber-400/30 bg-slate-950/90">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-amber-400/30 bg-slate-950/90">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 via-fuchsia-500 to-sky-400 flex items-center justify-center text-slate-950 font-bold text-lg shadow-lg">
             🙂
@@ -217,7 +208,6 @@ export default function PremiumChat() {
           </div>
         </div>
 
-        {/* LANGUAGE + PERSONALITY */}
         <div className="flex items-center gap-2">
           <select
             value={language}
@@ -250,7 +240,7 @@ export default function PremiumChat() {
       {/* CHAT MESSAGES */}
       <main
         ref={boxRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900"
+        className="flex-1 overflow-y-auto px-6 py-5 space-y-3 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[360px] md:min-h-[440px]"
       >
         {messages.map((msg) => (
           <div
@@ -289,7 +279,6 @@ export default function PremiumChat() {
           </div>
         ))}
 
-        {/* Typing indicator */}
         {loading && (
           <div className="flex justify-start mt-1">
             <div className="bg-slate-800/90 border border-amber-400/20 px-3 py-2 rounded-2xl">
@@ -304,7 +293,7 @@ export default function PremiumChat() {
       </main>
 
       {/* INPUT + VOICE */}
-      <footer className="border-t border-amber-400/30 bg-slate-950/95 px-4 py-3">
+      <footer className="border-t border-amber-400/30 bg-slate-950/95 px-6 py-3">
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <textarea
@@ -319,7 +308,7 @@ export default function PremiumChat() {
             <button
               onClick={sendMessage}
               disabled={loading}
-              className="bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-slate-950 px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap"
+              className="bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-slate-950 px-5 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap"
             >
               {loading ? "…" : "Send"}
             </button>

@@ -170,10 +170,11 @@ export default function App() {
               </button>
             </div>
 
-            <div className="mt-4 w-full max-w-3xl">
-              <div className="mb-2 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="mt-6 w-full">
+              {/* Small strip above the chat */}
+              <div className="mb-3 flex items-center justify-between text-[11px] text-slate-400 max-w-4xl mx-auto">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[10px]">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px]">
                     🙂
                   </div>
                   <span className="font-medium text-slate-200">
@@ -195,17 +196,15 @@ export default function App() {
                         {userInitial}
                       </div>
                     )}
-                    <span className="max-w-[120px] truncate text-slate-200 text-[11px]">
+                    <span className="max-w-[140px] truncate text-slate-200 text-[11px]">
                       {user.displayName || user.email}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Premium chat container (reuses Chat component for now) */}
-              <div className="rounded-3xl border border-amber-400/0 bg-transparent p-0 md:p-0">
-                <PremiumChat />
-              </div>
+              {/* Bigger premium chat card */}
+              <PremiumChat />
             </div>
 
             <p className="mt-4 text-[11px] text-slate-500 max-w-xl">
