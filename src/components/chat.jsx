@@ -1,7 +1,7 @@
 // src/components/Chat.jsx
 import React, { useEffect, useRef, useState } from "react";
 
-const API_URL = "/api/chat";
+const API_URL = "/api/chat"; // works with mock (proxy) + real Vercel api/chat
 
 function formatTime(ts) {
   const d = new Date(ts);
@@ -17,28 +17,20 @@ export default function Chat() {
       time: Date.now(),
     },
   ]);
-
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState("Hindi");
   const [personality, setPersonality] = useState("Friend");
   const [loading, setLoading] = useState(false);
-
-  // Voice states
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
-
   const boxRef = useRef(null);
 
-  // Auto scroll chat
   useEffect(() => {
     if (boxRef.current) {
       boxRef.current.scrollTop = boxRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // -----------------------------
-  // TEXT CHAT SEND
-  // -----------------------------
   async function sendMessage() {
     if (!input.trim()) return;
 
@@ -48,13 +40,12 @@ export default function Chat() {
       text: input.trim(),
       time: Date.now(),
     };
-
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
 
     try {
-      const res = await fetch(API_URL, {
+      const res = await fetch(API_ROUTE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -79,7 +70,6 @@ export default function Chat() {
 
       const data = await res.json();
       const reply = data.reply || "Thank you for sharing. Tell me more.";
-
       setMessages((m) => [
         ...m,
         {
@@ -111,9 +101,6 @@ export default function Chat() {
     }
   }
 
-  // -----------------------------
-  // VOICE RECORDING START
-  // -----------------------------
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -125,7 +112,6 @@ export default function Chat() {
       recorder.ondataavailable = (e) => chunks.push(e.data);
 
       recorder.onstop = async () => {
-        setLoading(true);
         const blob = new Blob(chunks, { type: "audio/webm" });
 
         const res = await fetch("/api/voice", {
@@ -135,7 +121,7 @@ export default function Chat() {
 
         const data = await res.json();
 
-        // Add both messages together (safer)
+        // Add user's spoken message as text
         setMessages((m) => [
           ...m,
           {
@@ -144,6 +130,11 @@ export default function Chat() {
             text: data.user_text || "(voice message)",
             time: Date.now(),
           },
+        ]);
+
+        // Add EMOTI reply
+        setMessages((m) => [
+          ...m,
           {
             id: Date.now() + 1,
             from: "emoti",
@@ -153,12 +144,8 @@ export default function Chat() {
         ]);
 
         // Play TTS audio
-        if (data.audio) {
-          const audio = new Audio("data:audio/mp3;base64," + data.audio);
-          audio.play();
-        }
-
-        setLoading(false);
+        const audio = new Audio("data:audio/mp3;base64," + data.audio);
+        audio.play();
       };
 
       recorder.start();
@@ -168,9 +155,6 @@ export default function Chat() {
     }
   };
 
-  // -----------------------------
-  // VOICE RECORDING STOP
-  // -----------------------------
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
@@ -178,13 +162,9 @@ export default function Chat() {
     setRecording(false);
   };
 
-  // -----------------------------
-  // UI RENDER
-  // -----------------------------
   return (
     <div className="w-full max-w-2xl bg-slate-900/70 backdrop-blur rounded-2xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
-      
-      {/* HEADER */}
+      {/* header row inside card */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/90">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#38bdf8] flex items-center justify-center text-white font-bold text-lg">
@@ -197,8 +177,6 @@ export default function Chat() {
             </p>
           </div>
         </div>
-
-        {/* LANGUAGE + PERSONALITY */}
         <div className="flex items-center gap-2">
           <select
             value={language}
@@ -213,7 +191,6 @@ export default function Chat() {
             <option>Marathi</option>
             <option>English</option>
           </select>
-
           <select
             value={personality}
             onChange={(e) => setPersonality(e.target.value)}
@@ -228,7 +205,7 @@ export default function Chat() {
         </div>
       </header>
 
-      {/* CHAT MESSAGES */}
+      {/* messages */}
       <main
         ref={boxRef}
         className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/70"
@@ -254,7 +231,6 @@ export default function Chat() {
             </div>
           </div>
         ))}
-
         {loading && (
           <div className="flex">
             <div className="bg-slate-800 p-2 rounded-xl text-xs text-slate-300">
@@ -264,9 +240,11 @@ export default function Chat() {
         )}
       </main>
 
-      {/* INPUT + VOICE */}
+      {/* input */}
       <footer className="border-t border-slate-800 bg-slate-900/90 px-3 py-2">
         <div className="flex gap-2">
+          
+
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -275,7 +253,6 @@ export default function Chat() {
             placeholder="Write something…"
             className="flex-1 resize-none border border-slate-700 bg-slate-950 rounded px-3 py-2 text-sm text-slate-100"
           />
-
           <button
             onClick={sendMessage}
             disabled={loading}
@@ -283,7 +260,6 @@ export default function Chat() {
           >
             {loading ? "…" : "Send"}
           </button>
-
           <button
             onClick={recording ? stopRecording : startRecording}
             className={`${
