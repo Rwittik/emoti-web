@@ -1,3 +1,9 @@
+// api/create-order.js
+
+export const config = {
+  runtime: "nodejs18.x",  // ⭐ REQUIRED for Razorpay to work
+};
+
 import Razorpay from "razorpay";
 
 export default async function handler(req, res) {
@@ -20,7 +26,7 @@ export default async function handler(req, res) {
     const order = await razorpay.orders.create(options);
     res.status(200).json(order);
   } catch (err) {
-    console.error(err);
+    console.error("RAZORPAY ERROR:", err);
     res.status(500).json({ error: "Order creation failed" });
   }
 }
