@@ -15,7 +15,11 @@ const AuthContext = createContext(null);
 // Provider wrapper (NO JSX here – uses React.createElement)
 export function AuthProvider({ children }) {
   const authValue = useProvideAuth();
-  return React.createElement(AuthContext.Provider, { value: authValue }, children);
+  return React.createElement(
+    AuthContext.Provider,
+    { value: authValue },
+    children
+  );
 }
 
 // Hook to use Auth anywhere
@@ -43,7 +47,7 @@ function useProvideAuth() {
             email: firebaseUser.email,
             createdAt: Date.now(),
             premium: false,
-            activePremium: false,
+            activePremium: false, // Razorpay / manual upgrade will flip this to true
           };
 
           await setDoc(userRef, baseProfile, { merge: true });
@@ -69,8 +73,20 @@ function useProvideAuth() {
     await signOut(auth);
   };
 
-  // Simple premium flag
-  const isPremium = profile?.activePremium === true;
+  // -----------------------------
+  // PREMIUM LOGIC
+  // -----------------------------
+
+  // 1) Real premium flag from Firestore
+  const firestorePremium = profile?.activePremium === true;
+
+  // 2) Hardcoded special Gmail that always has premium (for you)
+  const SPECIAL_PREMIUM_EMAIL = "dashadhikary@gmail.com";
+
+  // 3) Final premium flag used by the app
+  const isPremium =
+    firestorePremium ||
+    (user && user.email === SPECIAL_PREMIUM_EMAIL);
 
   return {
     user,
