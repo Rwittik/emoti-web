@@ -1,6 +1,30 @@
 // src/components/PremiumHomepage.jsx
 import React from "react";
 
+// helper copied from MoodDashboard for consistent colors
+function moodColor(mood) {
+  switch (mood) {
+    case "high":
+      return "bg-emerald-400";
+    case "okay":
+      return "bg-sky-400";
+    case "low":
+    default:
+      return "bg-rose-400";
+  }
+}
+
+// preview data aligned with MoodDashboard "This week"
+const MOOD_PREVIEW_DAYS = [
+  { id: "mon", label: "Mon", mood: "low", score: 2 },
+  { id: "tue", label: "Tue", mood: "okay", score: 3 },
+  { id: "wed", label: "Wed", mood: "high", score: 4 },
+  { id: "thu", label: "Thu", mood: "low", score: 2 },
+  { id: "fri", label: "Fri", mood: "okay", score: 3 },
+  { id: "sat", label: "Sat", mood: "high", score: 5 },
+  { id: "sun", label: "Sun", mood: "okay", score: 3 },
+];
+
 export default function PremiumHomepage({
   onOpenPremiumChat = () => {},
   onOpenMoodDashboard = () => {},
@@ -111,6 +135,7 @@ export default function PremiumHomepage({
 
       {/* -------- MOOD TREND -------- */}
       <section className="max-w-6xl mx-auto px-5 py-10 grid md:grid-cols-3 gap-6">
+        {/* This week's mood trend preview */}
         <div className="md:col-span-2 rounded-2xl bg-slate-900/70 border border-slate-800 p-5 shadow-xl">
           <h3 className="text-lg font-semibold mb-1">
             This week&apos;s mood trend
@@ -119,11 +144,40 @@ export default function PremiumHomepage({
             EMOTI tracks your emotional patterns to help you understand yourself
             better.
           </p>
-          <div className="h-44 rounded-xl bg-slate-800/50 border border-slate-700 flex flex-col items-center justify-center text-slate-500 text-xs">
-            <span>(Graph comes here)</span>
-            <span className="mt-1 text-[10px] text-slate-500">
-              Will be auto-generated from your chat sessions.
-            </span>
+
+          <div className="h-44 rounded-xl bg-slate-800/50 border border-slate-700 px-4 py-3 flex flex-col">
+            <div className="flex items-center justify-between text-[10px] text-slate-500 mb-2">
+              <span>Heavier days</span>
+              <span>Lighter days</span>
+            </div>
+
+            {/* mini bar graph similar to MoodDashboard */}
+            <div className="flex-1 flex items-end gap-3">
+              {MOOD_PREVIEW_DAYS.map((day) => {
+                const height = (day.score / 5) * 100;
+                return (
+                  <div
+                    key={day.id}
+                    className="flex-1 flex flex-col items-center gap-1"
+                  >
+                    <div
+                      className={`w-full max-w-[18px] rounded-full ${moodColor(
+                        day.mood
+                      )}`}
+                      style={{ height: `${Math.max(height, 12)}%` }}
+                    />
+                    <span className="text-[10px] text-slate-400">
+                      {day.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="mt-2 text-[10px] text-slate-500 text-center">
+              Preview of your weekly mood. Open the Mood Dashboard for full
+              details.
+            </p>
           </div>
         </div>
 
