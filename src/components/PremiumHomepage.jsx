@@ -1,7 +1,5 @@
 // src/components/PremiumHomepage.jsx
-import React, { useEffect, useState } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase"; // 🔸 adjust path if your firebase config is elsewhere
+import React from "react";
 
 // helper copied from MoodDashboard for consistent colors
 function moodColor(mood) {
@@ -16,8 +14,8 @@ function moodColor(mood) {
   }
 }
 
-// fallback preview data if Firestore has nothing yet
-const FALLBACK_MOOD_PREVIEW_DAYS = [
+// preview data aligned with MoodDashboard "This week"
+const MOOD_PREVIEW_DAYS = [
   { id: "mon", label: "Mon", mood: "low", score: 2 },
   { id: "tue", label: "Tue", mood: "okay", score: 3 },
   { id: "wed", label: "Wed", mood: "high", score: 4 },
@@ -31,73 +29,13 @@ export default function PremiumHomepage({
   onOpenPremiumChat = () => {},
   onOpenMoodDashboard = () => {},
   onOpenEmotionImages = () => {},
-  onOpenEmotionPlaylist = () => {},
+  onOpenEmotionPlaylist = () => {}, // 🔸 NEW: Emotion playlist opener
   user,
 }) {
   const firstName =
     user?.displayName?.split(" ")[0] ||
     user?.email?.split("@")[0] ||
     "Friend";
-
-  // 🔸 Real-time stats from Firestore (with sensible defaults)
-  const [weeklyChats, setWeeklyChats] = useState(5);
-  const [currentMoodLabel, setCurrentMoodLabel] = useState("Okay");
-  const [currentMoodDescription, setCurrentMoodDescription] = useState(
-    "Slightly heavy, but you're still moving."
-  );
-  const [nightStreak, setNightStreak] = useState(3);
-  const [moodPreviewDays, setMoodPreviewDays] = useState(
-    FALLBACK_MOOD_PREVIEW_DAYS
-  );
-
-  // Helper for the small “most days / quiet week” text
-  function weekFrequencyLabel(chats) {
-    if (!chats || chats <= 0) return "a very quiet week";
-    if (chats === 1) return "one day";
-    if (chats <= 3) return "a few days";
-    if (chats <= 5) return "most days";
-    return "almost every day";
-  }
-
-  // 🔴 Real-time Firestore listener
-  useEffect(() => {
-    if (!user) return;
-
-    // You can choose any path; this is a clear, namespaced one:
-    // users/{uid}/premium/dashboard
-    const ref = doc(db, "users", user.uid, "premium", "dashboard");
-
-    const unsub = onSnapshot(
-      ref,
-      (snap) => {
-        const data = snap.data();
-        if (!data) return;
-
-        if (typeof data.weeklyChats === "number") {
-          setWeeklyChats(data.weeklyChats);
-        }
-        if (typeof data.nightStreak === "number") {
-          setNightStreak(data.nightStreak);
-        }
-        if (typeof data.currentMoodLabel === "string") {
-          setCurrentMoodLabel(data.currentMoodLabel);
-        }
-        if (typeof data.currentMoodDescription === "string") {
-          setCurrentMoodDescription(data.currentMoodDescription);
-        }
-
-        if (Array.isArray(data.moodPreviewDays) && data.moodPreviewDays.length) {
-          // Expect each item like: { id, label, mood, score }
-          setMoodPreviewDays(data.moodPreviewDays);
-        }
-      },
-      (err) => {
-        console.error("Failed to subscribe to premium dashboard:", err);
-      }
-    );
-
-    return () => unsub();
-  }, [user]);
 
   return (
     <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 min-h-screen pb-20">
@@ -148,45 +86,30 @@ export default function PremiumHomepage({
 
             {/* tiny “at a glance” stats */}
             <div className="grid grid-cols-3 gap-3 text-xs">
-              {/* THIS WEEK – uses weeklyChats */}
               <div className="rounded-2xl bg-slate-950/70 border border-amber-300/30 px-3 py-3 shadow-md shadow-amber-500/20">
                 <p className="text-[10px] text-amber-200/80 uppercase tracking-[0.16em] mb-1">
                   This week
                 </p>
-                <p className="text-lg font-semibold">
-                  {weeklyChats} {weeklyChats === 1 ? "chat" : "chats"}
-                </p>
+                <p className="text-lg font-semibold">5 chats</p>
                 <p className="text-[11px] text-slate-400">
                   You’ve checked in on{" "}
-                  <span className="text-sky-300 font-medium">
-                    {weekFrequencyLabel(weeklyChats)}
-                  </span>
-                  .
+                  <span className="text-sky-300 font-medium">most days</span>.
                 </p>
               </div>
-
-              {/* CURRENT MOOD – label + description */}
               <div className="rounded-2xl bg-slate-950/70 border border-sky-400/40 px-3 py-3">
                 <p className="text-[10px] text-sky-300/90 uppercase tracking-[0.16em] mb-1">
                   Current mood
                 </p>
-                <p className="text-lg font-semibold text-sky-200">
-                  {currentMoodLabel || "Okay"}
-                </p>
+                <p className="text-lg font-semibold text-sky-200">Okay</p>
                 <p className="text-[11px] text-slate-400">
-                  {currentMoodDescription ||
-                    "Slightly heavy, but you're still moving."}
+                  Slightly heavy, but you&apos;re still moving.
                 </p>
               </div>
-
-              {/* NIGHT STREAK – streak of nights */}
               <div className="rounded-2xl bg-slate-950/70 border border-emerald-400/40 px-3 py-3">
                 <p className="text-[10px] text-emerald-300/90 uppercase tracking-[0.16em] mb-1">
                   Night streak
                 </p>
-                <p className="text-lg font-semibold text-emerald-200">
-                  {nightStreak} {nightStreak === 1 ? "night" : "nights"}
-                </p>
+                <p className="text-lg font-semibold text-emerald-200">3 nights</p>
                 <p className="text-[11px] text-slate-400">
                   Consistency helps EMOTI learn your patterns.
                 </p>
@@ -258,7 +181,7 @@ export default function PremiumHomepage({
           </p>
         </div>
 
-        {/* Emotion Playlist */}
+        {/* Emotion Playlist – premium music space */}
         <div
           onClick={onOpenEmotionPlaylist}
           className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-emerald-300/60 hover:bg-slate-900/90 transition-all duration-300"
@@ -310,9 +233,9 @@ export default function PremiumHomepage({
               <span>Lighter days</span>
             </div>
 
-            {/* mini bar graph (live if Firestore provides moodPreviewDays) */}
+            {/* mini bar graph similar to MoodDashboard */}
             <div className="flex-1 flex items-end gap-3">
-              {moodPreviewDays.map((day) => {
+              {MOOD_PREVIEW_DAYS.map((day) => {
                 const height = (day.score / 5) * 100;
                 return (
                   <div
@@ -340,12 +263,121 @@ export default function PremiumHomepage({
           </div>
         </div>
 
-        {/* RIGHT COLUMN etc... (unchanged from your previous version) */}
-        {/* ... keep the rest of your component as-is ... */}
+        {/* RIGHT COLUMN: AI images + mini playlist teaser */}
+        <div className="space-y-4">
+          {/* AI Reflection Images */}
+          <div
+            onClick={onOpenEmotionImages}
+            className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl cursor-pointer hover:border-violet-300/70 hover:bg-slate-900 transition-all duration-300"
+            role="button"
+          >
+            <h3 className="text-lg font-semibold mb-2">AI emotion images</h3>
+            <p className="text-sm text-slate-400 mb-3">
+              Visual reflections of your feelings based on recent chats.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Preview tile 1 – latest image */}
+              <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-sky-500/40 via-violet-500/30 to-slate-900 opacity-90" />
+                <span className="relative text-[11px] text-slate-100 font-medium">
+                  Latest reflection
+                </span>
+              </div>
+
+              {/* Preview tile 2 – previous image */}
+              <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/35 via-teal-400/25 to-slate-900 opacity-80" />
+                <span className="relative text-[11px] text-slate-100 font-medium">
+                  Previous reflection
+                </span>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] text-slate-500">
+              Generated softly from your emotional tone — never shown to anyone
+              else.
+            </p>
+            <p className="mt-1 text-[10px] text-amber-200">
+              Click to open your full AI Emotion Images gallery.
+            </p>
+          </div>
+
+          {/* Mini Emotion Playlist teaser */}
+          <div
+            onClick={onOpenEmotionPlaylist}
+            className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-emerald-300/40 p-4 shadow-lg shadow-emerald-500/25 cursor-pointer hover:border-emerald-200 hover:shadow-emerald-400/30 transition-all duration-300"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-300/80">
+                  Emotion playlist
+                </p>
+                <h4 className="text-sm font-semibold text-slate-50">
+                  Tonight&apos;s suggested mood mix
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Based on your recent check-ins:{" "}
+                  <span className="text-emerald-200 font-medium">
+                    chill · a bit heavy · hopeful
+                  </span>
+                </p>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-emerald-400 flex items-center justify-center text-slate-950 text-lg shadow-md shadow-emerald-500/40">
+                ▶
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1 text-[10px] text-slate-200 mb-2">
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Chill · late night
+              </span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Sad but comforting
+              </span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Focus & study
+              </span>
+            </div>
+
+            <p className="text-[10px] text-slate-500">
+              Tap to pick your language & platform (Spotify / YouTube, etc.).
+            </p>
+          </div>
+        </div>
       </section>
 
-      {/* premium tools section stays the same */}
-      {/* ... */}
+      {/* -------- PREMIUM FEATURES LIST -------- */}
+      <section className="max-w-6xl mx-auto px-5 py-10">
+        <h2 className="text-xl font-semibold mb-4">Your premium tools</h2>
+
+        <div className="grid md:grid-cols-3 gap-6 text-sm">
+          <div className="relative rounded-2xl bg-slate-900/80 border border-slate-800 p-4 overflow-hidden">
+            <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-sky-500/10 blur-2xl" />
+            <h4 className="font-medium mb-1">🧠 Deep emotional analysis</h4>
+            <p className="text-slate-400 relative">
+              Understand layered emotions behind your words across multiple
+              chats, not just one conversation.
+            </p>
+          </div>
+          <div className="relative rounded-2xl bg-slate-900/80 border border-slate-800 p-4 overflow-hidden">
+            <div className="absolute -bottom-10 -left-10 w-24 h-24 rounded-full bg-violet-500/10 blur-2xl" />
+            <h4 className="font-medium mb-1">🎨 AI mood images</h4>
+            <p className="text-slate-400 relative">
+              Get visual forms of what you&apos;re feeling, perfect for
+              journaling, lock screens, or quiet reflection.
+            </p>
+          </div>
+          <div className="relative rounded-2xl bg-slate-900/80 border border-slate-800 p-4 overflow-hidden">
+            <div className="absolute -top-12 right-0 w-20 h-20 rounded-full bg-emerald-500/10 blur-2xl" />
+            <h4 className="font-medium mb-1">📔 Private mood tracker</h4>
+            <p className="text-slate-400 relative">
+              A personal emotional diary summarising highs, lows, and patterns
+              over weeks — only visible to you.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

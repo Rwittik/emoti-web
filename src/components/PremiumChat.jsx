@@ -1,8 +1,6 @@
 // src/components/PremiumChat.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { doc, setDoc } from "firebase/firestore";
-import { db } from "../firebase"; // ⬅️ adjust path if needed
 
 const API_URL = "/api/chat";
 
@@ -34,187 +32,9 @@ function getMoodKey(uid) {
   return `emoti_mood_events_${uid}`;
 }
 
-// ---------- small helpers for dashboard metrics ----------
-
-function dayKeyFromTs(ts) {
-  return new Date(ts).toISOString().slice(0, 10); // YYYY-MM-DD
-}
-
-function previousDayKey(key) {
-  const d = new Date(key + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
-function emotionScore(emotion) {
-  const map = {
-    low: 2,
-    sad: 2,
-    stressed: 2,
-    anxious: 2,
-    okay: 3,
-    mixed: 3,
-    neutral: 3,
-    high: 4,
-    happy: 4,
-    hopeful: 4,
-  };
-  return map[emotion] ?? 3;
-}
-
-function moodSummaryForEmotion(emotion) {
-  switch (emotion) {
-    case "low":
-    case "sad":
-      return {
-        label: "Low",
-        description:
-          "Feeling heavier than usual. Be gentle with yourself today.",
-      };
-    case "high":
-    case "happy":
-    case "hopeful":
-      return {
-        label: "High",
-        description:
-          "Lighter, more hopeful energy. Capture this in a journal note.",
-      };
-    case "stressed":
-    case "anxious":
-      return {
-        label: "Stressed",
-        description:
-          "Your mind is busy. Slowing down and grounding might help.",
-      };
-    default:
-      return {
-        label: "Okay",
-        description: "Slightly heavy, but you're still moving.",
-      };
-  }
-}
-
-// compute weeklyChats, nightStreak, moodPreviewDays from all mood events
-function computeDashboardStats(allEvents) {
-  if (!Array.isArray(allEvents) || allEvents.length === 0) {
-    return {
-      weeklyChats: 0,
-      nightStreak: 0,
-      currentMoodLabel: "Okay",
-      currentMoodDescription:
-        "Slightly heavy, but you're still moving.",
-      moodPreviewDays: [],
-    };
-  }
-
-  const now = new Date();
-  const nowMs = now.getTime();
-  const sevenDaysAgo = nowMs - 6 * 24 * 60 * 60 * 1000;
-
-  // 1) recent events for "this week"
-  const recent = allEvents.filter((e) => e.ts >= sevenDaysAgo);
-
-  const daySetWeekly = new Set(recent.map((e) => dayKeyFromTs(e.ts)));
-  const weeklyChats = daySetWeekly.size; // days with at least one chat
-
-  // 2) night streak = consecutive days with any event, ending on latest day
-  const allDayKeys = Array.from(
-    new Set(allEvents.map((e) => dayKeyFromTs(e.ts)))
-  ).sort(); // lexicographic works for YYYY-MM-DD
-
-  let nightStreak = 0;
-  if (allDayKeys.length > 0) {
-    const lastDay = allDayKeys[allDayKeys.length - 1];
-    const daySet = new Set(allDayKeys);
-    let current = lastDay;
-    while (daySet.has(current)) {
-      nightStreak += 1;
-      current = previousDayKey(current);
-    }
-  }
-
-  // 3) current mood = from last event
-  const lastEvent = allEvents[allEvents.length - 1];
-  const { label: currentMoodLabel, description: currentMoodDescription } =
-    moodSummaryForEmotion(lastEvent?.emotion || "okay");
-
-  // 4) moodPreviewDays = 7 bars for last 7 days
-  const previewDays = [];
-  for (let i = 6; i >= 0; i--) {
-    const dayMs = nowMs - (6 - i) * 24 * 60 * 60 * 1000;
-    const key = dayKeyFromTs(dayMs);
-    const label = new Date(dayMs).toLocaleDateString(undefined, {
-      weekday: "short",
-    }); // Mon, Tue...
-
-    const eventsForDay = allEvents.filter(
-      (e) => dayKeyFromTs(e.ts) === key
-    );
-
-    if (eventsForDay.length === 0) {
-      previewDays.push({
-        id: key,
-        label,
-        mood: "okay",
-        score: 0,
-      });
-      continue;
-    }
-
-    const avgScore =
-      eventsForDay.reduce((sum, e) => sum + emotionScore(e.emotion), 0) /
-      eventsForDay.length;
-
-    let mood;
-    if (avgScore < 2.5) mood = "low";
-    else if (avgScore > 3.5) mood = "high";
-    else mood = "okay";
-
-    previewDays.push({
-      id: key,
-      label,
-      mood,
-      score: avgScore,
-    });
-  }
-
-  return {
-    weeklyChats,
-    nightStreak,
-    currentMoodLabel,
-    currentMoodDescription,
-    moodPreviewDays: previewDays,
-  };
-}
-
-// push stats into Firestore dashboard doc
-async function syncDashboardToFirestore(uid, allEvents) {
-  if (!uid || !db) return;
-  const stats = computeDashboardStats(allEvents);
-
-  try {
-    const ref = doc(db, "users", uid, "premium", "dashboard");
-    await setDoc(
-      ref,
-      {
-        weeklyChats: stats.weeklyChats,
-        nightStreak: stats.nightStreak,
-        currentMoodLabel: stats.currentMoodLabel,
-        currentMoodDescription: stats.currentMoodDescription,
-        moodPreviewDays: stats.moodPreviewDays,
-        updatedAt: Date.now(),
-      },
-      { merge: true }
-    );
-  } catch (err) {
-    console.error("Failed to sync premium dashboard:", err);
-  }
-}
-
 // save one mood point (called whenever EMOTI replies with an emotion)
-async function appendMoodEvent(uid, emotion) {
+function appendMoodEvent(uid, emotion) {
   if (!uid || !emotion) return;
-  if (typeof window === "undefined") return;
 
   const key = getMoodKey(uid);
   try {
@@ -230,9 +50,6 @@ async function appendMoodEvent(uid, emotion) {
     ].slice(-500); // keep last 500 events only
 
     window.localStorage.setItem(key, JSON.stringify(updated));
-
-    // also sync to Firestore for PremiumHomepage
-    await syncDashboardToFirestore(uid, updated);
   } catch (err) {
     console.error("Failed to append mood event", err);
   }
@@ -443,6 +260,7 @@ export default function PremiumChat() {
       return filtered;
     });
 
+    // apply new active + messages after sessions updated
     if (nextActive) {
       setActiveSessionId(nextActive.id);
       setMessages(nextMessages);
@@ -495,11 +313,10 @@ export default function PremiumChat() {
       }
 
       const data = await res.json();
-      const reply =
-        data.reply || "Thank you for sharing. Tell me a bit more?";
+      const reply = data.reply || "Thank you for sharing. Tell me a bit more?";
       const emotion = data.emotion || "okay";
 
-      await appendMoodEvent(user?.uid, emotion);
+      appendMoodEvent(user?.uid, emotion);
 
       setMessages((m) => [
         ...m,
@@ -570,7 +387,7 @@ export default function PremiumChat() {
             time: now,
           };
 
-          const emotion = data.emotion || "okay"; // backend can add emotion later
+          const emotion = data.emotion || "okay"; // make sure backend returns this
 
           const emotiMsg = {
             id: now + 1,
@@ -580,14 +397,13 @@ export default function PremiumChat() {
             emotion,
           };
 
-          await appendMoodEvent(user?.uid, emotion);
+          // NEW: log this emotion for the MoodDashboard
+          appendMoodEvent(user?.uid, emotion);
 
           setMessages((m) => [...m, userMsg, emotiMsg]);
 
           if (data.audio) {
-            const audio = new Audio(
-              "data:audio/mp3;base64," + data.audio
-            );
+            const audio = new Audio("data:audio/mp3;base64," + data.audio);
             audio.play();
           }
         } catch (err) {
@@ -673,7 +489,7 @@ export default function PremiumChat() {
           </div>
         </div>
 
-        {/* session controls */}
+        {/* session controls: previous chats + new chat + rename + delete */}
         <div className="flex flex-col gap-2 text-[11px]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
