@@ -182,23 +182,40 @@ export default function PremiumHomepage({
         </div>
 
         {/* AI Reflection Images */}
-        <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-5 shadow-xl">
+        <div
+          onClick={onOpenEmotionImages}
+          className="rounded-2xl bg-slate-900/70 border border-slate-800 p-5 shadow-xl cursor-pointer
+                     hover:border-amber-300/60 hover:bg-slate-900/90 transition-all duration-300"
+          role="button"
+        >
           <h3 className="text-lg font-semibold mb-2">AI emotion images</h3>
           <p className="text-sm text-slate-400 mb-3">
             Visual reflections of your feelings based on recent chats.
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-slate-800/60 h-24 border border-slate-700 flex items-center justify-center text-[11px] text-slate-500">
-              (Image 1)
+            {/* Preview tile 1 – latest image */}
+            <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-sky-500/40 via-violet-500/30 to-slate-900 opacity-80" />
+              <span className="relative text-[11px] text-slate-100">
+                Latest reflection
+              </span>
             </div>
-            <div className="rounded-xl bg-slate-800/60 h-24 border border-slate-700 flex items-center justify-center text-[11px] text-slate-500">
-              (Image 2)
+
+            {/* Preview tile 2 – previous image */}
+            <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/35 via-teal-400/25 to-slate-900 opacity-80" />
+              <span className="relative text-[11px] text-slate-100">
+                Previous reflection
+              </span>
             </div>
           </div>
 
           <p className="mt-3 text-[11px] text-slate-500">
             Generated from your emotional tone.
+          </p>
+          <p className="mt-1 text-[10px] text-amber-200">
+            Click to open your full AI Emotion Images gallery.
           </p>
         </div>
       </section>
