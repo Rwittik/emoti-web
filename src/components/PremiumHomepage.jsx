@@ -33,7 +33,9 @@ export default function PremiumHomepage({
   user,
 }) {
   const firstName =
-    user?.displayName?.split(" ")[0] || user?.email?.split("@")[0] || "Friend";
+    user?.displayName?.split(" ")[0] ||
+    user?.email?.split("@")[0] ||
+    "Friend";
 
   return (
     <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 min-h-screen pb-20">
@@ -100,34 +102,19 @@ export default function PremiumHomepage({
           <p className="text-[11px] text-slate-400">Track weekly feelings</p>
         </div>
 
-        {/* AI Reflection Images */}
+        {/* AI Emotion Images */}
         <div
           onClick={onOpenEmotionImages}
-          className="rounded-2xl bg-slate-900/70 border border-slate-800 p-5 shadow-xl 
-                     cursor-pointer hover:border-amber-300/60 hover:bg-slate-900/90 transition-all duration-300"
-          role="button"
-          tabIndex={0}
+          className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
+                     hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
         >
-          <h3 className="text-lg font-semibold mb-2">AI emotion images</h3>
-          <p className="text-sm text-slate-400 mb-3">
-            Visual reflections of your feelings based on recent chats.
+          <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
+            AI Emotion Images
+            <span className="opacity-0 group-hover:opacity-100 transition-all">
+              →
+            </span>
           </p>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-slate-800/60 h-24 border border-slate-700 flex items-center justify-center text-[11px] text-slate-500">
-              (Image 1)
-            </div>
-            <div className="rounded-xl bg-slate-800/60 h-24 border border-slate-700 flex items-center justify-center text-[11px] text-slate-500">
-              (Image 2)
-            </div>
-          </div>
-
-          <p className="mt-3 text-[11px] text-slate-500">
-            Generated from your emotional tone.
-          </p>
-          <p className="mt-1 text-[10px] text-amber-200">
-            Click to open the full AI Emotion Images page.
-          </p>
+          <p className="text-[11px] text-slate-400">View mood reflections</p>
         </div>
 
         {/* Previous Chats */}
