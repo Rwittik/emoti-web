@@ -29,7 +29,7 @@ export default function PremiumHomepage({
   onOpenPremiumChat = () => {},
   onOpenMoodDashboard = () => {},
   onOpenEmotionImages = () => {},
-  onOpenPreviousChats = () => {},
+  onOpenEmotionPlaylist = () => {}, // 🔸 NEW: Emotion playlist opener
   user,
 }) {
   const firstName =
@@ -117,19 +117,21 @@ export default function PremiumHomepage({
           <p className="text-[11px] text-slate-400">View mood reflections</p>
         </div>
 
-        {/* Previous Chats */}
+        {/* Emotion Playlist – replaces Previous Chats */}
         <div
-          onClick={onOpenPreviousChats}
+          onClick={onOpenEmotionPlaylist}
           className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
                      hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
         >
           <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
-            Previous Chats
+            Emotion Playlist 🎧
             <span className="opacity-0 group-hover:opacity-100 transition-all">
               →
             </span>
           </p>
-          <p className="text-[11px] text-slate-400">Open saved sessions</p>
+          <p className="text-[11px] text-slate-400">
+            Listen to mood-based music in your favourite language.
+          </p>
         </div>
       </section>
 
