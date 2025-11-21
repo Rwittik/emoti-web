@@ -1,15 +1,16 @@
 // api/voice.js
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// (This `config` is only used by Next.js, but harmless on Vercel)
 export const config = {
   api: {
     bodyParser: false, // we read the raw stream ourselves
   },
 };
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -18,7 +19,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 0. Read raw binary body
+    // 0. Read raw binary body from the request
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const audioBuffer = Buffer.concat(chunks);
@@ -27,12 +28,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Empty audio body" });
     }
 
-    // Convert Buffer → Blob for OpenAI
-    const audioBlob = new Blob([audioBuffer], { type: "audio/webm" });
+    // 1) Convert Buffer → File for OpenAI (recommended pattern)
+    const file = await toFile(audioBuffer, "recording.webm", {
+      contentType: "audio/webm",
+    });
 
-    // 1. Speech-to-Text
+    // 2) Speech-to-text
     const transcription = await client.audio.transcriptions.create({
-      file: audioBlob,
+      file,
       model: "gpt-4o-transcribe",
     });
 
@@ -48,7 +51,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. EMOTI reply
+    // 3) EMOTI reply (text)
     const aiReply = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
@@ -67,7 +70,7 @@ export default async function handler(req, res) {
 
     console.log("Reply text:", replyText);
 
-    // 3. Text → Speech
+    // 4) Text → speech
     const tts = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "alloy",
@@ -77,15 +80,15 @@ export default async function handler(req, res) {
 
     const ttsAudioBuffer = Buffer.from(await tts.arrayBuffer());
 
-    // Respond with both text & audio
-    res.status(200).json({
+    // Respond with both text & audio (base64)
+    return res.status(200).json({
       user_text: userText,
       reply_text: replyText,
       audio: ttsAudioBuffer.toString("base64"),
     });
   } catch (err) {
     console.error("Voice processing failed:", err);
-    res
+    return res
       .status(500)
       .json({ error: "Voice processing failed", detail: String(err) });
   }
