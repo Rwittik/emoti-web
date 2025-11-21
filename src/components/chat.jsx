@@ -23,7 +23,7 @@ function getInitialMessages() {
 }
 
 export default function Chat() {
-  // ⬇️ now also read isPremium so we can show different text for normal users
+  // ⬇️ we read isPremium so we can lock voice
   const { user, isPremium } = useAuth();
 
   const [messages, setMessages] = useState(getInitialMessages);
@@ -37,6 +37,8 @@ export default function Chat() {
   const mediaRecorderRef = useRef(null);
 
   const boxRef = useRef(null);
+
+  const canUseVoice = !!user && isPremium; // ✅ only premium & logged in
 
   // Auto scroll chat
   useEffect(() => {
@@ -173,9 +175,11 @@ export default function Chat() {
   }
 
   // -----------------------------
-  // VOICE RECORDING START
+  // VOICE RECORDING START (premium only)
   // -----------------------------
   const startRecording = async () => {
+    if (!canUseVoice || recording) return; // safety
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -275,7 +279,7 @@ export default function Chat() {
             </div>
           </div>
 
-          {/* Little status line for normal / guest / premium users */}
+          {/* Status line for guest / free / premium */}
           {!user && (
             <p className="text-[10px] text-amber-300 mt-0.5">
               You&apos;re in guest mode. Chats are not saved and will reset if
@@ -285,15 +289,15 @@ export default function Chat() {
 
           {user && !isPremium && (
             <p className="text-[10px] text-slate-400 mt-0.5">
-              Free mode · Your messages are only stored on this device. Upgrade
-              to EMOTI Premium for mood history, images & your own dashboard.
+              Free mode · Your messages are only stored on this device. Voice
+              notes and mood tools are part of EMOTI Premium.
             </p>
           )}
 
           {user && isPremium && (
             <p className="text-[10px] text-emerald-300 mt-0.5">
-              Premium active · This basic chat is for quick talks. Your longer
-              reflections live in the Premium chatroom & mood tools.
+              Premium active · You can send voice notes here and use your
+              dedicated Premium space for deeper talks.
             </p>
           )}
         </div>
@@ -397,14 +401,32 @@ export default function Chat() {
             {loading ? "…" : "Send"}
           </button>
 
-          <button
-            onClick={recording ? stopRecording : startRecording}
-            className={`${
-              recording ? "bg-red-600" : "bg-purple-600"
-            } text-white px-4 py-2 rounded text-sm`}
-          >
-            {recording ? "Stop 🎙" : "Voice 🎤"}
-          </button>
+          {/* 🔒 Voice button: premium only */}
+          {canUseVoice ? (
+            <button
+              onClick={recording ? stopRecording : startRecording}
+              className={`flex items-center gap-1 px-4 py-2 rounded text-sm text-white ${
+                recording ? "bg-red-600" : "bg-purple-600"
+              }`}
+            >
+              {recording ? "Stop" : "Voice"}
+              <span role="img" aria-label="mic">
+                🎤
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="flex items-center gap-1 px-4 py-2 rounded text-sm border border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
+              title="Voice notes are available in EMOTI Premium"
+            >
+              <span role="img" aria-label="lock">
+                🔒
+              </span>
+              <span>Voice</span>
+            </button>
+          )}
         </div>
       </footer>
     </div>
