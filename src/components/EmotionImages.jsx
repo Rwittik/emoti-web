@@ -141,7 +141,10 @@ function buildImagesFromEvents(events) {
     const mood = mapEmotionToMood(ev.emotion);
 
     if (!byDay.has(key)) {
-      byDay.set(key, { date: d, counts: { calm: 0, hopeful: 0, heavy: 0, mixed: 0 } });
+      byDay.set(key, {
+        date: d,
+        counts: { calm: 0, hopeful: 0, heavy: 0, mixed: 0 },
+      });
     }
     byDay.get(key).counts[mood] += 1;
   }
@@ -222,6 +225,50 @@ function getPresetForMood(mood, index = 0) {
         tags: ["mixed", "up-and-down", "processing"],
       };
   }
+}
+
+/**
+ * Generate a unique abstract “image” style per card using gradients.
+ * Deterministic: same id + mood -> same art, new day -> new art.
+ */
+function getCardStyle(img) {
+  const id = img.id || "";
+  const mood = img.mood || "mixed";
+
+  // simple deterministic seed from id string
+  let seed = 0;
+  for (let i = 0; i < id.length; i++) {
+    seed = (seed + id.charCodeAt(i) * (i + 11)) % 10000;
+  }
+
+  const baseHue =
+    mood === "calm"
+      ? 210 // blue
+      : mood === "hopeful"
+      ? 140 // green
+      : mood === "heavy"
+      ? 340 // pink/red
+      : 45; // amber / mixed
+
+  const shift1 = (seed % 40) - 20;
+  const shift2 = (seed % 60) - 30;
+  const shift3 = (seed % 80) - 40;
+
+  const h1 = (baseHue + shift1 + 360) % 360;
+  const h2 = (baseHue + shift2 + 360) % 360;
+  const h3 = (baseHue + shift3 + 360) % 360;
+
+  const intensity = 0.35 + (seed % 25) / 100; // 0.35 – 0.60
+
+  return {
+    backgroundImage: `
+      radial-gradient(circle at 0% 0%, hsla(${h1}, 90%, 65%, ${intensity}) 0, transparent 58%),
+      radial-gradient(circle at 100% 0%, hsla(${h2}, 95%, 60%, ${intensity}) 0, transparent 58%),
+      radial-gradient(circle at 0% 100%, hsla(${h3}, 85%, 55%, ${intensity}) 0, transparent 60%),
+      radial-gradient(circle at 50% 60%, hsl(222, 47%, 11%) 0, hsl(222, 47%, 7%) 65%)
+    `,
+    transform: `scale(1.03) rotate(${(seed % 10) - 5}deg)`,
+  };
 }
 
 export default function EmotionImages({ onBack }) {
@@ -348,21 +395,13 @@ export default function EmotionImages({ onBack }) {
                 className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 md:p-5"
               >
                 <div className="grid md:grid-cols-[220px,minmax(0,1fr)] gap-4">
-                  {/* Fake image preview */}
+                  {/* Auto-generated abstract image */}
                   <div className="relative">
-                    <div className="h-40 rounded-xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden border border-slate-700">
-                      <div
-                        className={`absolute inset-0 opacity-80 blur-2xl ${
-                          img.mood === "calm"
-                            ? "bg-gradient-to-br from-sky-500/40 via-indigo-500/30 to-slate-900"
-                            : img.mood === "hopeful"
-                            ? "bg-gradient-to-br from-emerald-400/40 via-teal-400/30 to-slate-900"
-                            : img.mood === "heavy"
-                            ? "bg-gradient-to-br from-rose-500/45 via-slate-900 to-slate-950"
-                            : "bg-gradient-to-br from-amber-400/40 via-sky-400/25 to-slate-900"
-                        }`}
-                      />
-                      <div className="relative h-full w-full flex items-center justify-center text-[11px] text-slate-200">
+                    <div
+                      className="h-40 rounded-xl overflow-hidden border border-slate-700 shadow-[0_0_35px_rgba(15,23,42,0.9)] bg-slate-900"
+                      style={getCardStyle(img)}
+                    >
+                      <div className="relative h-full w-full flex items-center justify-center text-[11px] text-slate-100/80 mix-blend-screen">
                         AI mood reflection
                       </div>
                     </div>
