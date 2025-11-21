@@ -1,4 +1,5 @@
 // src/App.jsx
+import MoodDashboard from "./components/MoodDashboard";
 import PremiumChat from "./components/PremiumChat";
 import React, { useRef, useState } from "react";
 import Chat from "./components/chat";
@@ -10,7 +11,8 @@ export default function App() {
   const chatRef = useRef(null);
   const { user, isPremium, logout, loginWithGoogle } = useAuth();
 
-  const [premiumView, setPremiumView] = useState("dashboard"); // "dashboard" | "chat"
+  // "dashboard" | "chat" | "mood"
+  const [premiumView, setPremiumView] = useState("dashboard");
 
   const scrollToChat = () => {
     if (chatRef.current) {
@@ -31,6 +33,12 @@ export default function App() {
   const goToPremiumDashboard = () => {
     if (user && isPremium) {
       setPremiumView("dashboard");
+    }
+  };
+
+  const openMoodDashboard = () => {
+    if (user && isPremium) {
+      setPremiumView("mood");
     }
   };
 
@@ -214,11 +222,20 @@ export default function App() {
             </p>
           </section>
         </main>
+      ) : user && isPremium && premiumView === "mood" ? (
+        // NEW: Mood dashboard full page
+        <MoodDashboard onBack={goToPremiumDashboard} />
       ) : (
         <>
           {/* PREMIUM HOMEPAGE (only for premium users) */}
           {user && isPremium && (
-            <PremiumHomepage user={user} onOpenPremiumChat={openPremiumChat} />
+            <PremiumHomepage
+              user={user}
+              onOpenPremiumChat={openPremiumChat}
+              onOpenMoodDashboard={openMoodDashboard}
+              onOpenEmotionImages={() => {}}
+              onOpenPreviousChats={() => {}}
+            />
           )}
 
           {/* HERO SECTION (shown for everyone – free + premium) */}

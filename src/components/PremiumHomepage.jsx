@@ -41,30 +41,62 @@ export default function PremiumHomepage({ onOpenPremiumChat, user }) {
       </section>
 
       {/* -------- PREMIUM QUICK ACTIONS -------- */}
-      <section className="max-w-6xl mx-auto px-5 pt-10 grid md:grid-cols-4 gap-4">
-        <button
-          onClick={onOpenPremiumChat}
-          className="rounded-xl bg-amber-400/20 border border-amber-300/40 px-4 py-4 shadow-lg hover:bg-amber-400/30 transition text-left"
-        >
-          <p className="font-semibold text-amber-200 text-sm">Premium Chat</p>
-          <p className="text-[11px] text-slate-400">Go to your priority room</p>
-        </button>
+<section className="max-w-6xl mx-auto px-5 pt-10 grid md:grid-cols-4 gap-4">
 
-        <div className="rounded-xl bg-slate-900/70 border border-slate-700 px-4 py-4 text-left">
-          <p className="font-semibold text-amber-200 text-sm">Mood Dashboard</p>
-          <p className="text-[11px] text-slate-400">Track weekly feelings</p>
-        </div>
+  {/* Premium Chat */}
+  <button
+    onClick={onOpenPremiumChat}
+    className="group rounded-2xl bg-gradient-to-br from-amber-400/15 via-amber-300/10 to-amber-500/10 
+               border border-amber-300/40 px-4 py-4 shadow-lg text-left 
+               hover:border-amber-300 hover:bg-amber-400/20 transition-all duration-300"
+  >
+    <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
+      Premium Chat
+      <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
+    </p>
+    <p className="text-[11px] text-slate-400">Go to your priority room</p>
+  </button>
 
-        <div className="rounded-xl bg-slate-900/70 border border-slate-700 px-4 py-4 text-left">
-          <p className="font-semibold text-amber-200 text-sm">AI Emotion Images</p>
-          <p className="text-[11px] text-slate-400">View mood reflections</p>
-        </div>
+  {/* Mood Dashboard */}
+  <div
+    onClick={onOpenMoodDashboard}
+    className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
+               hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
+  >
+    <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
+      Mood Dashboard
+      <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
+    </p>
+    <p className="text-[11px] text-slate-400">Track weekly feelings</p>
+  </div>
 
-        <div className="rounded-xl bg-slate-900/70 border border-slate-700 px-4 py-4 text-left">
-          <p className="font-semibold text-amber-200 text-sm">Previous Chats</p>
-          <p className="text-[11px] text-slate-400">Open saved sessions</p>
-        </div>
-      </section>
+  {/* AI Emotion Images */}
+  <div
+    onClick={onOpenEmotionImages}
+    className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
+               hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
+  >
+    <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
+      AI Emotion Images
+      <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
+    </p>
+    <p className="text-[11px] text-slate-400">View mood reflections</p>
+  </div>
+
+  {/* Previous Chats */}
+  <div
+    onClick={onOpenPreviousChats}
+    className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
+               hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
+  >
+    <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
+      Previous Chats
+      <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
+    </p>
+    <p className="text-[11px] text-slate-400">Open saved sessions</p>
+  </div>
+</section>
+
 
       {/* -------- MOOD TREND -------- */}
       <section className="max-w-6xl mx-auto px-5 py-10 grid md:grid-cols-3 gap-6">
