@@ -537,10 +537,47 @@ export default function App() {
                 </div>
               </div>
 
-              <p className="mt-3 text-[11px] text-slate-400 max-w-xl text-center">
-                EMOTI does not provide medical, legal, or financial advice. It
-                is not a substitute for professional mental health care.
-              </p>
+              {isPremium ? (
+                // Premium-only strip under the basic chat box
+                <div className="mt-6 w-full max-w-3xl grid sm:grid-cols-3 gap-3 text-[11px]">
+                  <div className="rounded-2xl border border-amber-400/40 bg-amber-400/5 px-3 py-3">
+                    <div className="text-amber-300 font-semibold mb-1">
+                      Premium chatroom
+                    </div>
+                    <p className="text-slate-300">
+                      Use the{" "}
+                      <span className="font-semibold">Premium chat</span> button
+                      in the top bar to enter your dedicated, priority space.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-amber-400/20 bg-slate-900/80 px-3 py-3">
+                    <div className="text-amber-200 font-semibold mb-1">
+                      Mood dashboard
+                    </div>
+                    <p className="text-slate-400">
+                      See this week&apos;s mood trend and patterns on your
+                      premium homepage.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-amber-400/20 bg-slate-900/80 px-3 py-3">
+                    <div className="text-amber-200 font-semibold mb-1">
+                      AI emotion images
+                    </div>
+                    <p className="text-slate-400">
+                      View soft, abstract images that reflect how your recent
+                      chats feel.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                // Normal users still see the basic disclaimer
+                <p className="mt-3 text-[11px] text-slate-400 max-w-xl text-center">
+                  EMOTI does not provide medical, legal, or financial advice. It
+                  is not a substitute for professional mental health care.
+                </p>
+              )}
             </div>
           </section>
 

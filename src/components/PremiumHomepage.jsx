@@ -10,7 +10,7 @@ export default function PremiumHomepage({ onOpenPremiumChat, user }) {
   return (
     <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 min-h-screen pb-20">
 
-      {/* PREMIUM BANNER */}
+      {/* -------- PREMIUM BANNER -------- */}
       <section className="relative border-b border-amber-400/20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 blur-3xl opacity-50" />
 
@@ -30,7 +30,7 @@ export default function PremiumHomepage({ onOpenPremiumChat, user }) {
             visual reflections, and priority AI responses designed just for you.
           </p>
 
-          {/* 🔁 CHANGED: use onOpenPremiumChat instead of scrollToChat */}
+          {/* Go to Premium Chat */}
           <button
             onClick={onOpenPremiumChat}
             className="mt-6 px-6 py-3 rounded-full bg-amber-400/90 hover:bg-amber-300 text-slate-900 shadow-lg font-semibold text-sm md:text-base transition"
@@ -40,18 +40,43 @@ export default function PremiumHomepage({ onOpenPremiumChat, user }) {
         </div>
       </section>
 
-      {/* DASHBOARD Section */}
+      {/* -------- PREMIUM QUICK ACTIONS -------- */}
+      <section className="max-w-6xl mx-auto px-5 pt-10 grid md:grid-cols-4 gap-4">
+        <button
+          onClick={onOpenPremiumChat}
+          className="rounded-xl bg-amber-400/20 border border-amber-300/40 px-4 py-4 shadow-lg hover:bg-amber-400/30 transition text-left"
+        >
+          <p className="font-semibold text-amber-200 text-sm">Premium Chat</p>
+          <p className="text-[11px] text-slate-400">Go to your priority room</p>
+        </button>
+
+        <div className="rounded-xl bg-slate-900/70 border border-slate-700 px-4 py-4 text-left">
+          <p className="font-semibold text-amber-200 text-sm">Mood Dashboard</p>
+          <p className="text-[11px] text-slate-400">Track weekly feelings</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-900/70 border border-slate-700 px-4 py-4 text-left">
+          <p className="font-semibold text-amber-200 text-sm">AI Emotion Images</p>
+          <p className="text-[11px] text-slate-400">View mood reflections</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-900/70 border border-slate-700 px-4 py-4 text-left">
+          <p className="font-semibold text-amber-200 text-sm">Previous Chats</p>
+          <p className="text-[11px] text-slate-400">Open saved sessions</p>
+        </div>
+      </section>
+
+      {/* -------- MOOD TREND -------- */}
       <section className="max-w-6xl mx-auto px-5 py-10 grid md:grid-cols-3 gap-6">
-        {/* Mood Graph Card */}
         <div className="md:col-span-2 rounded-2xl bg-slate-900/70 border border-slate-800 p-5 shadow-xl">
           <h3 className="text-lg font-semibold mb-1">This week&apos;s mood trend</h3>
           <p className="text-sm text-slate-400 mb-4">
             EMOTI tracks your emotional patterns to help you understand yourself better.
           </p>
-          <div className="h-40 rounded-xl bg-slate-800/50 border border-slate-700 flex flex-col items-center justify-center text-slate-500 text-xs">
+          <div className="h-44 rounded-xl bg-slate-800/50 border border-slate-700 flex flex-col items-center justify-center text-slate-500 text-xs">
             <span>(Graph comes here)</span>
             <span className="mt-1 text-[10px] text-slate-500">
-              Later you can plug in real data from your chat history.
+              Will be auto-generated from your chat sessions.
             </span>
           </div>
         </div>
@@ -73,12 +98,12 @@ export default function PremiumHomepage({ onOpenPremiumChat, user }) {
           </div>
 
           <p className="mt-3 text-[11px] text-slate-500">
-            Later this can show thumbnails generated from your latest emotional states.
+            Generated from your emotional tone.
           </p>
         </div>
       </section>
 
-      {/* PREMIUM FEATURES */}
+      {/* -------- PREMIUM FEATURES LIST -------- */}
       <section className="max-w-6xl mx-auto px-5 py-10">
         <h2 className="text-xl font-semibold mb-4">Your premium tools</h2>
 
@@ -98,7 +123,7 @@ export default function PremiumHomepage({ onOpenPremiumChat, user }) {
           <div className="rounded-xl bg-slate-900/70 border border-slate-800 p-4">
             <h4 className="font-medium mb-1">📔 Private mood tracker</h4>
             <p className="text-slate-400">
-              Your personal mental health diary, summarising highs, lows, and patterns.
+              Your personal mental health diary summarising highs, lows, and emotional patterns.
             </p>
           </div>
         </div>
