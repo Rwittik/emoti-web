@@ -1,7 +1,13 @@
 // src/components/PremiumHomepage.jsx
 import React from "react";
 
-export default function PremiumHomepage({ onOpenPremiumChat, user }) {
+export default function PremiumHomepage({
+  onOpenPremiumChat = () => {},
+  onOpenMoodDashboard = () => {},
+  onOpenEmotionImages = () => {},
+  onOpenPreviousChats = () => {},
+  user,
+}) {
   const firstName =
     user?.displayName?.split(" ")[0] ||
     user?.email?.split("@")[0] ||
@@ -9,7 +15,6 @@ export default function PremiumHomepage({ onOpenPremiumChat, user }) {
 
   return (
     <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 min-h-screen pb-20">
-
       {/* -------- PREMIUM BANNER -------- */}
       <section className="relative border-b border-amber-400/20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 blur-3xl opacity-50" />
@@ -41,69 +46,78 @@ export default function PremiumHomepage({ onOpenPremiumChat, user }) {
       </section>
 
       {/* -------- PREMIUM QUICK ACTIONS -------- */}
-<section className="max-w-6xl mx-auto px-5 pt-10 grid md:grid-cols-4 gap-4">
+      <section className="max-w-6xl mx-auto px-5 pt-10 grid md:grid-cols-4 gap-4">
+        {/* Premium Chat */}
+        <button
+          onClick={onOpenPremiumChat}
+          className="group rounded-2xl bg-gradient-to-br from-amber-400/15 via-amber-300/10 to-amber-500/10 
+                     border border-amber-300/40 px-4 py-4 shadow-lg text-left 
+                     hover:border-amber-300 hover:bg-amber-400/20 transition-all duration-300"
+        >
+          <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
+            Premium Chat
+            <span className="opacity-0 group-hover:opacity-100 transition-all">
+              →
+            </span>
+          </p>
+          <p className="text-[11px] text-slate-400">Go to your priority room</p>
+        </button>
 
-  {/* Premium Chat */}
-  <button
-    onClick={onOpenPremiumChat}
-    className="group rounded-2xl bg-gradient-to-br from-amber-400/15 via-amber-300/10 to-amber-500/10 
-               border border-amber-300/40 px-4 py-4 shadow-lg text-left 
-               hover:border-amber-300 hover:bg-amber-400/20 transition-all duration-300"
-  >
-    <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
-      Premium Chat
-      <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
-    </p>
-    <p className="text-[11px] text-slate-400">Go to your priority room</p>
-  </button>
+        {/* Mood Dashboard */}
+        <div
+          onClick={onOpenMoodDashboard}
+          className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
+                     hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
+        >
+          <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
+            Mood Dashboard
+            <span className="opacity-0 group-hover:opacity-100 transition-all">
+              →
+            </span>
+          </p>
+          <p className="text-[11px] text-slate-400">Track weekly feelings</p>
+        </div>
 
-  {/* Mood Dashboard */}
-  <div
-    onClick={onOpenMoodDashboard}
-    className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
-               hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
-  >
-    <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
-      Mood Dashboard
-      <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
-    </p>
-    <p className="text-[11px] text-slate-400">Track weekly feelings</p>
-  </div>
+        {/* AI Emotion Images */}
+        <div
+          onClick={onOpenEmotionImages}
+          className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
+                     hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
+        >
+          <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
+            AI Emotion Images
+            <span className="opacity-0 group-hover:opacity-100 transition-all">
+              →
+            </span>
+          </p>
+          <p className="text-[11px] text-slate-400">View mood reflections</p>
+        </div>
 
-  {/* AI Emotion Images */}
-  <div
-    onClick={onOpenEmotionImages}
-    className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
-               hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
-  >
-    <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
-      AI Emotion Images
-      <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
-    </p>
-    <p className="text-[11px] text-slate-400">View mood reflections</p>
-  </div>
-
-  {/* Previous Chats */}
-  <div
-    onClick={onOpenPreviousChats}
-    className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
-               hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
-  >
-    <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
-      Previous Chats
-      <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
-    </p>
-    <p className="text-[11px] text-slate-400">Open saved sessions</p>
-  </div>
-</section>
-
+        {/* Previous Chats */}
+        <div
+          onClick={onOpenPreviousChats}
+          className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
+                     hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
+        >
+          <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
+            Previous Chats
+            <span className="opacity-0 group-hover:opacity-100 transition-all">
+              →
+            </span>
+          </p>
+          <p className="text-[11px] text-slate-400">Open saved sessions</p>
+        </div>
+      </section>
 
       {/* -------- MOOD TREND -------- */}
       <section className="max-w-6xl mx-auto px-5 py-10 grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 rounded-2xl bg-slate-900/70 border border-slate-800 p-5 shadow-xl">
-          <h3 className="text-lg font-semibold mb-1">This week&apos;s mood trend</h3>
+          <h3 className="text-lg font-semibold mb-1">
+            This week&apos;s mood trend
+          </h3>
           <p className="text-sm text-slate-400 mb-4">
-            EMOTI tracks your emotional patterns to help you understand yourself better.
+            EMOTI tracks your emotional patterns to help you understand yourself
+            better.
           </p>
           <div className="h-44 rounded-xl bg-slate-800/50 border border-slate-700 flex flex-col items-center justify-center text-slate-500 text-xs">
             <span>(Graph comes here)</span>
@@ -143,19 +157,22 @@ export default function PremiumHomepage({ onOpenPremiumChat, user }) {
           <div className="rounded-xl bg-slate-900/70 border border-slate-800 p-4">
             <h4 className="font-medium mb-1">🧠 Deep emotional analysis</h4>
             <p className="text-slate-400">
-              Understand layered emotions behind your words across multiple chats.
+              Understand layered emotions behind your words across multiple
+              chats.
             </p>
           </div>
           <div className="rounded-xl bg-slate-900/70 border border-slate-800 p-4">
             <h4 className="font-medium mb-1">🎨 AI mood images</h4>
             <p className="text-slate-400">
-              Get visual forms of what you&apos;re feeling, to use in journaling or reflection.
+              Get visual forms of what you&apos;re feeling, to use in journaling
+              or reflection.
             </p>
           </div>
           <div className="rounded-xl bg-slate-900/70 border border-slate-800 p-4">
             <h4 className="font-medium mb-1">📔 Private mood tracker</h4>
             <p className="text-slate-400">
-              Your personal mental health diary summarising highs, lows, and emotional patterns.
+              Your personal mental health diary summarising highs, lows, and
+              emotional patterns.
             </p>
           </div>
         </div>
