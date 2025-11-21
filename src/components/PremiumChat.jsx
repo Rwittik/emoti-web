@@ -33,6 +33,7 @@ export default function PremiumChat() {
   const [sessions, setSessions] = useState([]); // [{id, title, createdAt, messages}]
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState(getInitialMessages);
+  const [titleInput, setTitleInput] = useState("");
 
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState("Hindi");
@@ -62,6 +63,7 @@ export default function PremiumChat() {
       setSessions([]);
       setActiveSessionId(null);
       setMessages(getInitialMessages());
+      setTitleInput("");
       return;
     }
 
@@ -70,7 +72,6 @@ export default function PremiumChat() {
     try {
       const raw = window.localStorage.getItem(key);
       if (!raw) {
-        // no sessions yet → create first one
         const firstSession = {
           id: Date.now().toString(),
           title: "First premium chat",
@@ -80,6 +81,7 @@ export default function PremiumChat() {
         setSessions([firstSession]);
         setActiveSessionId(firstSession.id);
         setMessages(firstSession.messages);
+        setTitleInput(firstSession.title);
         window.localStorage.setItem(key, JSON.stringify([firstSession]));
         return;
       }
@@ -95,15 +97,16 @@ export default function PremiumChat() {
         setSessions([firstSession]);
         setActiveSessionId(firstSession.id);
         setMessages(firstSession.messages);
+        setTitleInput(firstSession.title);
         window.localStorage.setItem(key, JSON.stringify([firstSession]));
         return;
       }
 
-      // Use last session as active (most recent)
       const lastSession = parsed[parsed.length - 1];
       setSessions(parsed);
       setActiveSessionId(lastSession.id);
       setMessages(lastSession.messages || getInitialMessages());
+      setTitleInput(lastSession.title || "");
     } catch (err) {
       console.error("Failed to load premium sessions:", err);
       const firstSession = {
@@ -115,6 +118,7 @@ export default function PremiumChat() {
       setSessions([firstSession]);
       setActiveSessionId(firstSession.id);
       setMessages(firstSession.messages);
+      setTitleInput(firstSession.title);
     }
   }, [user]);
 
@@ -137,13 +141,20 @@ export default function PremiumChat() {
   useEffect(() => {
     if (!user || !activeSessionId) return;
 
-    setSessions((prev) => {
-      const updated = prev.map((s) =>
+    setSessions((prev) =>
+      prev.map((s) =>
         s.id === activeSessionId ? { ...s, messages } : s
-      );
-      return updated;
-    });
+      )
+    );
   }, [messages, user, activeSessionId]);
+
+  // -----------------------------
+  // Keep title input in sync with active session
+  // -----------------------------
+  useEffect(() => {
+    const cur = sessions.find((s) => s.id === activeSessionId);
+    setTitleInput(cur?.title || "");
+  }, [sessions, activeSessionId]);
 
   // -----------------------------
   // Create a new chat session
@@ -162,6 +173,7 @@ export default function PremiumChat() {
     setSessions((prev) => [...prev, newSession]);
     setActiveSessionId(id);
     setMessages(baseMessages);
+    setTitleInput(newSession.title);
   };
 
   // -----------------------------
@@ -171,6 +183,63 @@ export default function PremiumChat() {
     setActiveSessionId(sessionId);
     const session = sessions.find((s) => s.id === sessionId);
     setMessages(session?.messages || getInitialMessages());
+    setTitleInput(session?.title || "");
+  };
+
+  // -----------------------------
+  // Rename current conversation
+  // -----------------------------
+  const handleTitleChange = (value) => {
+    setTitleInput(value);
+    if (!activeSessionId) return;
+
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeSessionId
+          ? { ...s, title: value.trim() || "Untitled chat" }
+          : s
+      )
+    );
+  };
+
+  // -----------------------------
+  // Delete current conversation
+  // -----------------------------
+  const deleteCurrentSession = () => {
+    if (!activeSessionId) return;
+
+    let nextActive = null;
+    let nextMessages = getInitialMessages();
+
+    setSessions((prev) => {
+      if (prev.length <= 1) {
+        const newSession = {
+          id: Date.now().toString(),
+          title: "New premium chat",
+          createdAt: Date.now(),
+          messages: getInitialMessages(),
+        };
+        nextActive = newSession;
+        nextMessages = newSession.messages;
+        return [newSession];
+      }
+
+      const idx = prev.findIndex((s) => s.id === activeSessionId);
+      const filtered = prev.filter((s) => s.id !== activeSessionId);
+
+      const chosen = filtered[Math.min(idx, filtered.length - 1)];
+      nextActive = chosen;
+      nextMessages = chosen.messages || getInitialMessages();
+
+      return filtered;
+    });
+
+    // apply new active + messages after sessions updated
+    if (nextActive) {
+      setActiveSessionId(nextActive.id);
+      setMessages(nextMessages);
+      setTitleInput(nextActive.title || "");
+    }
   };
 
   // -----------------------------
@@ -389,29 +458,51 @@ export default function PremiumChat() {
           </div>
         </div>
 
-        {/* session controls: previous chats + new chat */}
-        <div className="flex items-center justify-between gap-3 text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400">Conversation:</span>
-            <select
-              value={activeSessionId || ""}
-              onChange={(e) => switchSession(e.target.value)}
-              className="border border-amber-400/40 bg-slate-950/80 rounded-full px-3 py-1 text-[11px] text-slate-100"
-            >
-              {sessions.map((s, index) => (
-                <option key={s.id} value={s.id}>
-                  {s.title || `Chat ${index + 1}`}
-                </option>
-              ))}
-            </select>
+        {/* session controls: previous chats + new chat + rename + delete */}
+        <div className="flex flex-col gap-2 text-[11px]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Conversation:</span>
+              <select
+                value={activeSessionId || ""}
+                onChange={(e) => switchSession(e.target.value)}
+                className="border border-amber-400/40 bg-slate-950/80 rounded-full px-3 py-1 text-[11px] text-slate-100"
+              >
+                {sessions.map((s, index) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title || `Chat ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={startNewChat}
+                className="px-3 py-1.5 rounded-full bg-amber-400/90 hover:bg-amber-300 text-slate-950 text-[11px] font-semibold"
+              >
+                + New premium chat
+              </button>
+              <button
+                onClick={deleteCurrentSession}
+                className="px-3 py-1.5 rounded-full border border-amber-400/50 text-amber-200 hover:bg-amber-400/10 text-[11px]"
+              >
+                Delete
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={startNewChat}
-            className="px-3 py-1.5 rounded-full bg-amber-400/90 hover:bg-amber-300 text-slate-950 text-[11px] font-semibold"
-          >
-            + New premium chat
-          </button>
+          {/* rename field */}
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">Rename:</span>
+            <input
+              type="text"
+              value={titleInput}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              placeholder="Conversation title"
+              className="flex-1 bg-slate-900/80 border border-amber-400/30 rounded-full px-3 py-1 text-[11px] text-slate-100 placeholder:text-slate-500"
+            />
+          </div>
         </div>
       </header>
 
