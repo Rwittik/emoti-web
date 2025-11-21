@@ -42,7 +42,7 @@ export default async function handler(req, res) {
         Authorization:
           "Basic " +
           Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
-          // node 18+ has Buffer globally, works on Vercel
+        // node 18+ has Buffer globally, works on Vercel
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: "grant_type=client_credentials",
@@ -91,17 +91,33 @@ export default async function handler(req, res) {
 
     const json = await searchRes.json();
 
-    const playlists =
-      json.playlists?.items?.map((item) => ({
+    // 3) Normalize playlists into a safe, frontend-friendly shape
+    const rawItems = Array.isArray(json.playlists?.items)
+      ? json.playlists.items
+      : [];
+
+    const playlists = rawItems
+      // remove null/undefined or objects without basic fields
+      .filter(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          item.id &&
+          item.name
+      )
+      .map((item) => ({
         id: item.id,
         title: item.name,
         description: item.description || "",
-        image: item.images?.[0]?.url || null,
+        image: Array.isArray(item.images) && item.images[0]?.url
+          ? item.images[0].url
+          : null,
         url: item.external_urls?.spotify || null,
-        trackCount: item.tracks?.total ?? null,
-        // you can compute a nicer length text later if you fetch tracks,
-        // for now the frontend will show "X tracks"
-      })) || [];
+        trackCount:
+          item.tracks && typeof item.tracks.total === "number"
+            ? item.tracks.total
+            : null,
+      }));
 
     return res.status(200).json({ playlists });
   } catch (err) {
