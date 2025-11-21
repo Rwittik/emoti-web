@@ -228,46 +228,36 @@ function getPresetForMood(mood, index = 0) {
 }
 
 /**
- * Generate a unique abstract “image” style per card using gradients.
- * Deterministic: same id + mood -> same art, new day -> new art.
+ * 🔹 Generate a unique gradient “image” for each card.
+ * Uses the card id as a seed + mood palette so every card looks different.
  */
-function getCardStyle(img) {
-  const id = img.id || "";
-  const mood = img.mood || "mixed";
+function gradientForCard(id, mood) {
+  // simple hash from id string
+  const seed =
+    id?.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0) || 0;
 
-  // simple deterministic seed from id string
-  let seed = 0;
-  for (let i = 0; i < id.length; i++) {
-    seed = (seed + id.charCodeAt(i) * (i + 11)) % 10000;
-  }
+  const palettes = {
+    calm: ["#1e293b", "#0ea5e9", "#6366f1"],
+    hopeful: ["#020617", "#22c55e", "#eab308"],
+    heavy: ["#020617", "#b91c1c", "#4b5563"],
+    mixed: ["#020617", "#eab308", "#0ea5e9"],
+  };
 
-  const baseHue =
-    mood === "calm"
-      ? 210 // blue
-      : mood === "hopeful"
-      ? 140 // green
-      : mood === "heavy"
-      ? 340 // pink/red
-      : 45; // amber / mixed
+  const colors = palettes[mood] || palettes.mixed;
 
-  const shift1 = (seed % 40) - 20;
-  const shift2 = (seed % 60) - 30;
-  const shift3 = (seed % 80) - 40;
-
-  const h1 = (baseHue + shift1 + 360) % 360;
-  const h2 = (baseHue + shift2 + 360) % 360;
-  const h3 = (baseHue + shift3 + 360) % 360;
-
-  const intensity = 0.35 + (seed % 25) / 100; // 0.35 – 0.60
+  const angle = seed % 360; // 0–359
+  const extraAngle = (seed * 7) % 360;
 
   return {
     backgroundImage: `
-      radial-gradient(circle at 0% 0%, hsla(${h1}, 90%, 65%, ${intensity}) 0, transparent 58%),
-      radial-gradient(circle at 100% 0%, hsla(${h2}, 95%, 60%, ${intensity}) 0, transparent 58%),
-      radial-gradient(circle at 0% 100%, hsla(${h3}, 85%, 55%, ${intensity}) 0, transparent 60%),
-      radial-gradient(circle at 50% 60%, hsl(222, 47%, 11%) 0, hsl(222, 47%, 7%) 65%)
+      radial-gradient(circle at 10% 0%, ${colors[1]}33, transparent 55%),
+      radial-gradient(circle at 90% 100%, ${colors[2]}33, transparent 55%),
+      linear-gradient(${angle}deg, ${colors[0]}, ${colors[1]}55, ${colors[2]})
     `,
-    transform: `scale(1.03) rotate(${(seed % 10) - 5}deg)`,
+    transform: `rotate(${(seed % 7) - 3}deg) scale(1.03)`,
+    transformOrigin: "center",
+    backgroundSize: "140% 140%",
+    backgroundPosition: "center",
   };
 }
 
@@ -315,9 +305,8 @@ export default function EmotionImages({ onBack }) {
               Visual reflections of your feelings
             </h1>
             <p className="mt-1 text-xs md:text-sm text-slate-400 max-w-xl">
-              These images are visual summaries of how your recent chats felt —
-              like mood postcards generated from your emotional tone, not your
-              appearance.
+              These images are visual summaries of how your recent chats felt — like
+              mood postcards generated from your emotional tone, not your appearance.
             </p>
           </div>
 
@@ -395,13 +384,13 @@ export default function EmotionImages({ onBack }) {
                 className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 md:p-5"
               >
                 <div className="grid md:grid-cols-[220px,minmax(0,1fr)] gap-4">
-                  {/* Auto-generated abstract image */}
+                  {/* “AI image” preview */}
                   <div className="relative">
                     <div
-                      className="h-40 rounded-xl overflow-hidden border border-slate-700 shadow-[0_0_35px_rgba(15,23,42,0.9)] bg-slate-900"
-                      style={getCardStyle(img)}
+                      className="h-40 rounded-xl overflow-hidden border border-slate-700 shadow-[0_0_40px_rgba(15,23,42,0.9)] transition-transform"
+                      style={gradientForCard(img.id, img.mood)}
                     >
-                      <div className="relative h-full w-full flex items-center justify-center text-[11px] text-slate-100/80 mix-blend-screen">
+                      <div className="h-full w-full flex items-center justify-center text-[11px] text-slate-100/80">
                         AI mood reflection
                       </div>
                     </div>
