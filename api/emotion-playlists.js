@@ -1,112 +1,111 @@
 // api/emotion-playlists.js
-// Vercel serverless function / Next.js pages/api style
 
-const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
-const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
+// Small helper to map your UI mood ids to nicer search keywords
+const MOOD_SEARCH_MAP = {
+  chill: "chill calm lo-fi",
+  sad: "sad comforting emotional",
+  focus: "focus study concentration lo-fi",
+  uplifting: "happy uplifting positive",
+};
 
-// Map EMOTI mood + language → Spotify search keywords
 function buildSearchQuery(mood, language) {
-  let moodPart = "chill";
-
-  switch (mood) {
-    case "sad":
-      moodPart = "sad comforting";
-      break;
-    case "focus":
-      moodPart = "lofi focus study";
-      break;
-    case "uplifting":
-      moodPart = "happy uplifting";
-      break;
-    case "chill":
-    default:
-      moodPart = "chill calm";
-  }
-
-  let langPart = "";
-  const lower = (language || "").toLowerCase();
-
-  if (["hindi", "english", "bengali", "odia", "tamil", "telugu", "marathi"].includes(lower)) {
-    langPart = ` ${lower}`;
-  }
-
-  return `${moodPart}${langPart}`.trim();
+  const moodKey = MOOD_SEARCH_MAP[mood] || "mood";
+  const lang = language && language.toLowerCase() !== "mix" ? language : "";
+  // Example query: "chill calm lo-fi hindi playlist"
+  return `${moodKey} ${lang} playlist`.trim();
 }
 
-// Get an app access token via Spotify client credentials flow
-async function getSpotifyToken() {
-  if (!CLIENT_ID || !CLIENT_SECRET) {
-    throw new Error("Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET env vars");
-  }
-
-  const basic = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
-
-  const resp = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${basic}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ grant_type: "client_credentials" }),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    console.error("Spotify token error:", resp.status, text);
-    throw new Error("Failed to get Spotify token");
-  }
-
-  const json = await resp.json();
-  return json.access_token;
-}
-
-// Main handler
 export default async function handler(req, res) {
+  // Only allow GET
   if (req.method !== "GET") {
     res.setHeader("Allow", ["GET"]);
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const { mood = "chill", language = "Mix" } = req.query;
+    const { mood = "chill", language = "Mix" } = req.query || {};
 
-    const token = await getSpotifyToken();
+    const clientId = process.env.SPOTIFY_CLIENT_ID;
+    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 
-    const query = buildSearchQuery(mood, language);
-    const searchUrl = new URL("https://api.spotify.com/v1/search");
-    searchUrl.searchParams.set("q", query);
-    searchUrl.searchParams.set("type", "playlist");
-    searchUrl.searchParams.set("limit", "6");
+    if (!clientId || !clientSecret) {
+      console.error("Missing Spotify env vars");
+      return res
+        .status(500)
+        .json({ error: "Spotify credentials are not configured" });
+    }
 
-    const resp = await fetch(searchUrl.toString(), {
+    // 1) Get access token via Client Credentials flow
+    const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization:
+          "Basic " +
+          Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
+          // node 18+ has Buffer globally, works on Vercel
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=client_credentials",
+    });
+
+    if (!tokenRes.ok) {
+      const txt = await tokenRes.text();
+      console.error("Spotify token error:", tokenRes.status, txt);
+      return res
+        .status(500)
+        .json({ error: "Could not authenticate with Spotify" });
+    }
+
+    const tokenJson = await tokenRes.json();
+    const accessToken = tokenJson.access_token;
+
+    if (!accessToken) {
+      console.error("No access_token in token response:", tokenJson);
+      return res
+        .status(500)
+        .json({ error: "Invalid Spotify token response" });
+    }
+
+    // 2) Search for playlists
+    const query = buildSearchQuery(mood, language);
+
+    const searchUrl =
+      "https://api.spotify.com/v1/search?" +
+      new URLSearchParams({
+        q: query,
+        type: "playlist",
+        limit: "9",
+      }).toString();
+
+    const searchRes = await fetch(searchUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 
-    if (!resp.ok) {
-      const text = await resp.text();
-      console.error("Spotify search error:", resp.status, text);
-      return res.status(500).json({ error: "Spotify search failed" });
+    if (!searchRes.ok) {
+      const txt = await searchRes.text();
+      console.error("Spotify search error:", searchRes.status, txt);
+      return res.status(500).json({ error: "Failed to fetch playlists" });
     }
 
-    const data = await resp.json();
-    const items = data.playlists?.items || [];
+    const json = await searchRes.json();
 
-    const playlists = items.map((pl) => ({
-      id: pl.id,
-      title: pl.name,
-      description: pl.description,
-      url: pl.external_urls?.spotify || "",
-      image: pl.images?.[0]?.url || "",
-      trackCount: pl.tracks?.total ?? null,
-      // We don't have full length here; you can extend later if needed
-      lengthText: pl.tracks?.total ? `${pl.tracks.total} tracks` : "Spotify playlist",
-    }));
+    const playlists =
+      json.playlists?.items?.map((item) => ({
+        id: item.id,
+        title: item.name,
+        description: item.description || "",
+        image: item.images?.[0]?.url || null,
+        url: item.external_urls?.spotify || null,
+        trackCount: item.tracks?.total ?? null,
+        // you can compute a nicer length text later if you fetch tracks,
+        // for now the frontend will show "X tracks"
+      })) || [];
 
     return res.status(200).json({ playlists });
   } catch (err) {
-    console.error("emotion-playlists handler error:", err);
-    return res.status(500).json({ error: "Failed to load playlists" });
+    console.error("Emotion playlists API error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
