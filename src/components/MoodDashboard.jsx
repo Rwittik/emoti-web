@@ -1,5 +1,5 @@
 // src/components/MoodDashboard.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 
 /**
@@ -296,17 +296,22 @@ export default function MoodDashboard({ onBack }) {
   const { user } = useAuth();
   const [selectedWeekId, setSelectedWeekId] = useState("this-week");
 
-  // read raw mood events from localStorage
-  const moodEvents = useMemo(() => {
-    if (!user) return [];
+  // NEW: keep moodEvents in state so we can reload from localStorage
+  const [moodEvents, setMoodEvents] = useState([]);
+
+  // NEW: load / reload mood events whenever the dashboard mounts (and when user changes)
+  useEffect(() => {
+    if (!user) {
+      setMoodEvents([]);
+      return;
+    }
     try {
       const raw = window.localStorage.getItem(getMoodKey(user.uid));
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      const parsed = raw ? JSON.parse(raw) : [];
+      setMoodEvents(Array.isArray(parsed) ? parsed : []);
     } catch (err) {
       console.error("Failed to read mood events", err);
-      return [];
+      setMoodEvents([]);
     }
   }, [user]);
 
@@ -559,9 +564,7 @@ export default function MoodDashboard({ onBack }) {
                 <div className="flex items-center gap-2">
                   <span
                     className={`w-2.5 h-2.5 rounded-full mt-[2px] ${
-                      day.score > 0
-                        ? moodColor(day.mood)
-                        : "bg-slate-700/80"
+                      day.score > 0 ? moodColor(day.mood) : "bg-slate-700/80"
                     }`}
                   />
                   <div>
