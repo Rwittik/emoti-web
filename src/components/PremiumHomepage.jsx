@@ -41,31 +41,81 @@ export default function PremiumHomepage({
     <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 min-h-screen pb-20">
       {/* -------- PREMIUM BANNER -------- */}
       <section className="relative border-b border-amber-400/20 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 blur-3xl opacity-50" />
+        {/* soft background glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.18),_transparent_55%),_radial-gradient(circle_at_bottom,_rgba(14,165,233,0.16),_transparent_60%)]" />
 
         <div className="relative max-w-6xl mx-auto px-5 py-14">
-          <div className="inline-flex items-center gap-2 rounded-full bg-amber-400/10 border border-amber-400/40 px-3 py-1 text-[11px] text-amber-200 mb-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-amber-400/10 border border-amber-400/40 px-3 py-1 text-[11px] text-amber-200 mb-4">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Premium Dashboard
+            <span className="h-1 w-px bg-amber-400/40 mx-1" />
+            <span className="text-[10px] text-amber-100/80">
+              Private to you · Night-safe space
+            </span>
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-bold leading-tight">
-            Welcome back,
-            <span className="text-amber-300"> {firstName}</span> ✨
-          </h1>
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+            <div>
+              <h1 className="text-3xl md:text-5xl font-bold leading-tight tracking-tight">
+                Welcome back,
+                <span className="text-amber-300"> {firstName}</span> ✨
+              </h1>
 
-          <p className="mt-3 text-slate-300 max-w-xl text-sm md:text-base">
-            You’re a Premium EMOTI member — enjoy deeper emotional insights,
-            visual reflections, and priority AI responses designed just for you.
-          </p>
+              <p className="mt-3 text-slate-300 max-w-xl text-sm md:text-base">
+                You’re a Premium EMOTI member — enjoy deeper emotional insights,
+                visual reflections, mood-based music, and priority AI responses
+                designed just for you.
+              </p>
 
-          {/* Go to Premium Chat */}
-          <button
-            onClick={onOpenPremiumChat}
-            className="mt-6 px-6 py-3 rounded-full bg-amber-400/90 hover:bg-amber-300 text-slate-900 shadow-lg font-semibold text-sm md:text-base transition"
-          >
-            Continue chatting
-          </button>
+              {/* Go to Premium Chat */}
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={onOpenPremiumChat}
+                  className="px-6 py-3 rounded-full bg-amber-400/90 hover:bg-amber-300 text-slate-900 shadow-lg shadow-amber-500/40 font-semibold text-sm md:text-base transition"
+                >
+                  Continue chatting
+                </button>
+                <button
+                  onClick={onOpenEmotionPlaylist}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-300/60 text-amber-100 text-xs md:text-sm bg-slate-950/60 hover:bg-amber-400/10 transition"
+                >
+                  🎧 Open emotion playlist
+                </button>
+              </div>
+            </div>
+
+            {/* tiny “at a glance” stats */}
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div className="rounded-2xl bg-slate-950/70 border border-amber-300/30 px-3 py-3 shadow-md shadow-amber-500/20">
+                <p className="text-[10px] text-amber-200/80 uppercase tracking-[0.16em] mb-1">
+                  This week
+                </p>
+                <p className="text-lg font-semibold">5 chats</p>
+                <p className="text-[11px] text-slate-400">
+                  You’ve checked in on{" "}
+                  <span className="text-sky-300 font-medium">most days</span>.
+                </p>
+              </div>
+              <div className="rounded-2xl bg-slate-950/70 border border-sky-400/40 px-3 py-3">
+                <p className="text-[10px] text-sky-300/90 uppercase tracking-[0.16em] mb-1">
+                  Current mood
+                </p>
+                <p className="text-lg font-semibold text-sky-200">Okay</p>
+                <p className="text-[11px] text-slate-400">
+                  Slightly heavy, but you&apos;re still moving.
+                </p>
+              </div>
+              <div className="rounded-2xl bg-slate-950/70 border border-emerald-400/40 px-3 py-3">
+                <p className="text-[10px] text-emerald-300/90 uppercase tracking-[0.16em] mb-1">
+                  Night streak
+                </p>
+                <p className="text-lg font-semibold text-emerald-200">3 nights</p>
+                <p className="text-[11px] text-slate-400">
+                  Consistency helps EMOTI learn your patterns.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -74,82 +124,112 @@ export default function PremiumHomepage({
         {/* Premium Chat */}
         <button
           onClick={onOpenPremiumChat}
-          className="group rounded-2xl bg-gradient-to-br from-amber-400/15 via-amber-300/10 to-amber-500/10 
-                     border border-amber-300/40 px-4 py-4 shadow-lg text-left 
-                     hover:border-amber-300 hover:bg-amber-400/20 transition-all duration-300"
+          className="group relative rounded-2xl bg-slate-950/80 border border-amber-300/40 px-4 py-4 text-left shadow-lg shadow-black/40 overflow-hidden"
         >
-          <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
-            Premium Chat
-            <span className="opacity-0 group-hover:opacity-100 transition-all">
-              →
-            </span>
-          </p>
-          <p className="text-[11px] text-slate-400">Go to your priority room</p>
+          <div className="absolute -inset-0.5 bg-gradient-to-br from-amber-400/30 via-amber-500/10 to-rose-500/10 opacity-0 group-hover:opacity-100 blur-xl transition" />
+          <div className="relative">
+            <p className="font-semibold text-amber-200 text-sm flex items-center gap-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/20 text-[11px]">
+                ⭐
+              </span>
+              Premium chat
+              <span className="opacity-0 group-hover:opacity-100 transition-all">
+                →
+              </span>
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Go to your priority room with faster, deeper responses.
+            </p>
+          </div>
         </button>
 
         {/* Mood Dashboard */}
         <div
           onClick={onOpenMoodDashboard}
-          className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
-                     hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
+          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-sky-300/60 hover:bg-slate-900/90 transition-all duration-300"
         >
-          <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
-            Mood Dashboard
+          <p className="font-semibold text-sky-200 text-sm flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-400/15 text-[11px]">
+              📊
+            </span>
+            Mood dashboard
             <span className="opacity-0 group-hover:opacity-100 transition-all">
               →
             </span>
           </p>
-          <p className="text-[11px] text-slate-400">Track weekly feelings</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            See weekly highs & lows, patterns, and your emotional timeline.
+          </p>
         </div>
 
         {/* AI Emotion Images */}
         <div
           onClick={onOpenEmotionImages}
-          className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
-                     hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
+          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-violet-300/60 hover:bg-slate-900/90 transition-all duration-300"
         >
-          <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
-            AI Emotion Images
+          <p className="font-semibold text-violet-200 text-sm flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-400/15 text-[11px]">
+              🎨
+            </span>
+            AI emotion images
             <span className="opacity-0 group-hover:opacity-100 transition-all">
               →
             </span>
           </p>
-          <p className="text-[11px] text-slate-400">View mood reflections</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            View abstract visuals of how your recent chats feel.
+          </p>
         </div>
 
-        {/* Emotion Playlist – replaces Previous Chats */}
+        {/* Emotion Playlist – premium music space */}
         <div
           onClick={onOpenEmotionPlaylist}
-          className="cursor-pointer rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left 
-                     hover:border-amber-300/50 hover:bg-slate-900/90 transition-all duration-300 group"
+          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-emerald-300/60 hover:bg-slate-900/90 transition-all duration-300"
         >
-          <p className="font-semibold text-amber-200 text-sm flex items-center gap-1">
-            Emotion Playlist 🎧
+          <p className="font-semibold text-emerald-200 text-sm flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/15 text-[11px]">
+              🎧
+            </span>
+            Emotion playlist
             <span className="opacity-0 group-hover:opacity-100 transition-all">
               →
             </span>
           </p>
-          <p className="text-[11px] text-slate-400">
-            Listen to mood-based music in your favourite language.
+          <p className="text-[11px] text-slate-400 mt-1">
+            Mood-based music in your language to wind down after chats.
           </p>
         </div>
       </section>
 
-      {/* -------- MOOD TREND -------- */}
-      <section className="max-w-6xl mx-auto px-5 py-10 grid md:grid-cols-3 gap-6">
+      {/* -------- MOOD TREND + RIGHT COLUMN -------- */}
+      <section className="max-w-6xl mx-auto px-5 py-10 grid lg:grid-cols-3 gap-6">
         {/* This week's mood trend preview */}
-        <div className="md:col-span-2 rounded-2xl bg-slate-900/70 border border-slate-800 p-5 shadow-xl">
-          <h3 className="text-lg font-semibold mb-1">
-            This week&apos;s mood trend
-          </h3>
+        <div className="lg:col-span-2 rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl shadow-black/40">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold">This week&apos;s mood trend</h3>
+            <span className="text-[11px] px-2 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
+              Preview · tap mood dashboard for full view
+            </span>
+          </div>
           <p className="text-sm text-slate-400 mb-4">
             EMOTI tracks your emotional patterns to help you understand yourself
-            better.
+            better over time.
           </p>
 
-          <div className="h-44 rounded-xl bg-slate-800/50 border border-slate-700 px-4 py-3 flex flex-col">
+          <div className="h-44 rounded-xl bg-slate-900/80 border border-slate-700 px-4 py-3 flex flex-col">
             <div className="flex items-center justify-between text-[10px] text-slate-500 mb-2">
               <span>Heavier days</span>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-rose-400" /> low
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-sky-400" /> okay
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" /> high
+                </span>
+              </div>
               <span>Lighter days</span>
             </div>
 
@@ -165,8 +245,8 @@ export default function PremiumHomepage({
                     <div
                       className={`w-full max-w-[18px] rounded-full ${moodColor(
                         day.mood
-                      )}`}
-                      style={{ height: `${Math.max(height, 12)}%` }}
+                      )} shadow-sm shadow-slate-900`}
+                      style={{ height: `${Math.max(height, 14)}%` }}
                     />
                     <span className="text-[10px] text-slate-400">
                       {day.label}
@@ -177,48 +257,93 @@ export default function PremiumHomepage({
             </div>
 
             <p className="mt-2 text-[10px] text-slate-500 text-center">
-              Preview of your weekly mood. Open the Mood Dashboard for full
-              details.
+              This is a soft preview of your week. Open the Mood Dashboard for
+              deeper insights, journaling prompts, and patterns over time.
             </p>
           </div>
         </div>
 
-        {/* AI Reflection Images */}
-        <div
-          onClick={onOpenEmotionImages}
-          className="rounded-2xl bg-slate-900/70 border border-slate-800 p-5 shadow-xl cursor-pointer
-                     hover:border-amber-300/60 hover:bg-slate-900/90 transition-all duration-300"
-          role="button"
-        >
-          <h3 className="text-lg font-semibold mb-2">AI emotion images</h3>
-          <p className="text-sm text-slate-400 mb-3">
-            Visual reflections of your feelings based on recent chats.
-          </p>
+        {/* RIGHT COLUMN: AI images + mini playlist teaser */}
+        <div className="space-y-4">
+          {/* AI Reflection Images */}
+          <div
+            onClick={onOpenEmotionImages}
+            className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl cursor-pointer hover:border-violet-300/70 hover:bg-slate-900 transition-all duration-300"
+            role="button"
+          >
+            <h3 className="text-lg font-semibold mb-2">AI emotion images</h3>
+            <p className="text-sm text-slate-400 mb-3">
+              Visual reflections of your feelings based on recent chats.
+            </p>
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Preview tile 1 – latest image */}
-            <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-sky-500/40 via-violet-500/30 to-slate-900 opacity-80" />
-              <span className="relative text-[11px] text-slate-100">
-                Latest reflection
-              </span>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Preview tile 1 – latest image */}
+              <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-sky-500/40 via-violet-500/30 to-slate-900 opacity-90" />
+                <span className="relative text-[11px] text-slate-100 font-medium">
+                  Latest reflection
+                </span>
+              </div>
+
+              {/* Preview tile 2 – previous image */}
+              <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/35 via-teal-400/25 to-slate-900 opacity-80" />
+                <span className="relative text-[11px] text-slate-100 font-medium">
+                  Previous reflection
+                </span>
+              </div>
             </div>
 
-            {/* Preview tile 2 – previous image */}
-            <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/35 via-teal-400/25 to-slate-900 opacity-80" />
-              <span className="relative text-[11px] text-slate-100">
-                Previous reflection
-              </span>
-            </div>
+            <p className="mt-3 text-[11px] text-slate-500">
+              Generated softly from your emotional tone — never shown to anyone
+              else.
+            </p>
+            <p className="mt-1 text-[10px] text-amber-200">
+              Click to open your full AI Emotion Images gallery.
+            </p>
           </div>
 
-          <p className="mt-3 text-[11px] text-slate-500">
-            Generated from your emotional tone.
-          </p>
-          <p className="mt-1 text-[10px] text-amber-200">
-            Click to open your full AI Emotion Images gallery.
-          </p>
+          {/* Mini Emotion Playlist teaser */}
+          <div
+            onClick={onOpenEmotionPlaylist}
+            className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-emerald-300/40 p-4 shadow-lg shadow-emerald-500/25 cursor-pointer hover:border-emerald-200 hover:shadow-emerald-400/30 transition-all duration-300"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-300/80">
+                  Emotion playlist
+                </p>
+                <h4 className="text-sm font-semibold text-slate-50">
+                  Tonight&apos;s suggested mood mix
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Based on your recent check-ins:{" "}
+                  <span className="text-emerald-200 font-medium">
+                    chill · a bit heavy · hopeful
+                  </span>
+                </p>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-emerald-400 flex items-center justify-center text-slate-950 text-lg shadow-md shadow-emerald-500/40">
+                ▶
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1 text-[10px] text-slate-200 mb-2">
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Chill · late night
+              </span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Sad but comforting
+              </span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Focus & study
+              </span>
+            </div>
+
+            <p className="text-[10px] text-slate-500">
+              Tap to pick your language & platform (Spotify / YouTube, etc.).
+            </p>
+          </div>
         </div>
       </section>
 
@@ -227,25 +352,28 @@ export default function PremiumHomepage({
         <h2 className="text-xl font-semibold mb-4">Your premium tools</h2>
 
         <div className="grid md:grid-cols-3 gap-6 text-sm">
-          <div className="rounded-xl bg-slate-900/70 border border-slate-800 p-4">
+          <div className="relative rounded-2xl bg-slate-900/80 border border-slate-800 p-4 overflow-hidden">
+            <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-sky-500/10 blur-2xl" />
             <h4 className="font-medium mb-1">🧠 Deep emotional analysis</h4>
-            <p className="text-slate-400">
+            <p className="text-slate-400 relative">
               Understand layered emotions behind your words across multiple
-              chats.
+              chats, not just one conversation.
             </p>
           </div>
-          <div className="rounded-xl bg-slate-900/70 border border-slate-800 p-4">
+          <div className="relative rounded-2xl bg-slate-900/80 border border-slate-800 p-4 overflow-hidden">
+            <div className="absolute -bottom-10 -left-10 w-24 h-24 rounded-full bg-violet-500/10 blur-2xl" />
             <h4 className="font-medium mb-1">🎨 AI mood images</h4>
-            <p className="text-slate-400">
-              Get visual forms of what you&apos;re feeling, to use in journaling
-              or reflection.
+            <p className="text-slate-400 relative">
+              Get visual forms of what you&apos;re feeling, perfect for
+              journaling, lock screens, or quiet reflection.
             </p>
           </div>
-          <div className="rounded-xl bg-slate-900/70 border border-slate-800 p-4">
+          <div className="relative rounded-2xl bg-slate-900/80 border border-slate-800 p-4 overflow-hidden">
+            <div className="absolute -top-12 right-0 w-20 h-20 rounded-full bg-emerald-500/10 blur-2xl" />
             <h4 className="font-medium mb-1">📔 Private mood tracker</h4>
-            <p className="text-slate-400">
-              Your personal mental health diary summarising highs, lows, and
-              emotional patterns.
+            <p className="text-slate-400 relative">
+              A personal emotional diary summarising highs, lows, and patterns
+              over weeks — only visible to you.
             </p>
           </div>
         </div>
