@@ -1,9 +1,10 @@
 // src/components/MoodDashboard.jsx
 import React, { useMemo, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
 
 /**
- * Sample weekly mood data.
- * Later you can replace this with real data from Firestore or your backend.
+ * Fallback sample weekly mood data.
+ * Used only when the user has no real mood events yet.
  */
 const SAMPLE_WEEKS = [
   {
@@ -11,13 +12,55 @@ const SAMPLE_WEEKS = [
     label: "This week",
     range: "Mon – Sun",
     days: [
-      { id: "mon", label: "Mon", mood: "low", score: 2, note: "Felt heavy and tired after work." },
-      { id: "tue", label: "Tue", mood: "okay", score: 3, note: "Normal day, a bit stressed about tasks." },
-      { id: "wed", label: "Wed", mood: "high", score: 4, note: "Good conversation with a friend." },
-      { id: "thu", label: "Thu", mood: "low", score: 2, note: "Overthinking at night." },
-      { id: "fri", label: "Fri", mood: "okay", score: 3, note: "Finished some pending work." },
-      { id: "sat", label: "Sat", mood: "high", score: 5, note: "Felt relaxed, watched a movie." },
-      { id: "sun", label: "Sun", mood: "okay", score: 3, note: "Mixed – calm but a little lonely." },
+      {
+        id: "mon",
+        label: "Mon",
+        mood: "low",
+        score: 2,
+        note: "Felt heavy and tired after work.",
+      },
+      {
+        id: "tue",
+        label: "Tue",
+        mood: "okay",
+        score: 3,
+        note: "Normal day, a bit stressed about tasks.",
+      },
+      {
+        id: "wed",
+        label: "Wed",
+        mood: "high",
+        score: 4,
+        note: "Good conversation with a friend.",
+      },
+      {
+        id: "thu",
+        label: "Thu",
+        mood: "low",
+        score: 2,
+        note: "Overthinking at night.",
+      },
+      {
+        id: "fri",
+        label: "Fri",
+        mood: "okay",
+        score: 3,
+        note: "Finished some pending work.",
+      },
+      {
+        id: "sat",
+        label: "Sat",
+        mood: "high",
+        score: 5,
+        note: "Felt relaxed, watched a movie.",
+      },
+      {
+        id: "sun",
+        label: "Sun",
+        mood: "okay",
+        score: 3,
+        note: "Mixed – calm but a little lonely.",
+      },
     ],
   },
   {
@@ -25,13 +68,55 @@ const SAMPLE_WEEKS = [
     label: "Last week",
     range: "Mon – Sun",
     days: [
-      { id: "mon", label: "Mon", mood: "low", score: 1, note: "Argument at home." },
-      { id: "tue", label: "Tue", mood: "low", score: 2, note: "Couldn’t focus on study/work." },
-      { id: "wed", label: "Wed", mood: "okay", score: 3, note: "Slowly felt a bit better." },
-      { id: "thu", label: "Thu", mood: "okay", score: 3, note: "Normal, nothing special." },
-      { id: "fri", label: "Fri", mood: "high", score: 4, note: "Fun evening outside." },
-      { id: "sat", label: "Sat", mood: "high", score: 4, note: "Productive and light mood." },
-      { id: "sun", label: "Sun", mood: "okay", score: 3, note: "Rest + planning for next week." },
+      {
+        id: "mon",
+        label: "Mon",
+        mood: "low",
+        score: 1,
+        note: "Argument at home.",
+      },
+      {
+        id: "tue",
+        label: "Tue",
+        mood: "low",
+        score: 2,
+        note: "Couldn’t focus on study/work.",
+      },
+      {
+        id: "wed",
+        label: "Wed",
+        mood: "okay",
+        score: 3,
+        note: "Slowly felt a bit better.",
+      },
+      {
+        id: "thu",
+        label: "Thu",
+        mood: "okay",
+        score: 3,
+        note: "Normal, nothing special.",
+      },
+      {
+        id: "fri",
+        label: "Fri",
+        mood: "high",
+        score: 4,
+        note: "Fun evening outside.",
+      },
+      {
+        id: "sat",
+        label: "Sat",
+        mood: "high",
+        score: 4,
+        note: "Productive and light mood.",
+      },
+      {
+        id: "sun",
+        label: "Sun",
+        mood: "okay",
+        score: 3,
+        note: "Rest + planning for next week.",
+      },
     ],
   },
 ];
@@ -54,34 +139,243 @@ function moodLabel(mood) {
   return "Heavy / Low";
 }
 
+// same key that PremiumChat uses
+function getMoodKey(uid) {
+  return `emoti_mood_events_${uid}`;
+}
+
+// convert raw emotion strings into the 3 dashboard buckets
+function normalizeMood(rawEmotion) {
+  if (!rawEmotion) return "okay";
+  const e = String(rawEmotion).toLowerCase();
+
+  // clearly heavy/low emotions
+  if (
+    [
+      "anxious",
+      "anxiety",
+      "stressed",
+      "stress",
+      "sad",
+      "depressed",
+      "low",
+      "heavy",
+      "angry",
+      "lonely",
+      "overwhelmed",
+      "tired",
+    ].some((k) => e.includes(k))
+  ) {
+    return "low";
+  }
+
+  // clearly positive
+  if (
+    [
+      "high",
+      "positive",
+      "good",
+      "better",
+      "light",
+      "relieved",
+      "hopeful",
+      "grateful",
+      "calm",
+      "happy",
+      "peaceful",
+    ].some((k) => e.includes(k))
+  ) {
+    return "high";
+  }
+
+  // everything else = neutral / mixed
+  return "okay";
+}
+
+// numeric score for chart + averages
+function moodScore(mood) {
+  switch (mood) {
+    case "high":
+      return 4.5;
+    case "low":
+      return 2;
+    case "okay":
+    default:
+      return 3;
+  }
+}
+
+// get Monday of the week with an offset (0 = current, -1 = last week)
+function getWeekStart(date, weekOffset = 0) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sun, 1 = Mon, ...
+  const diffToMonday = (day + 6) % 7; // convert so Monday is 0
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - diffToMonday + weekOffset * 7);
+  return d;
+}
+
+// build a Mon–Sun week view from mood events
+function buildWeekFromEvents(events, weekOffset, fallbackWeek) {
+  if (!events || events.length === 0) return fallbackWeek;
+
+  const weekStart = getWeekStart(new Date(), weekOffset);
+  const ids = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const days = ids.map((id, index) => {
+    const dayStart = new Date(weekStart);
+    dayStart.setDate(weekStart.getDate() + index);
+
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayStart.getDate() + 1);
+
+    const dayEvents = events.filter((e) => {
+      const t = new Date(e.ts);
+      return t >= dayStart && t < dayEnd;
+    });
+
+    if (dayEvents.length === 0) {
+      return {
+        id,
+        label: labels[index],
+        mood: "okay",
+        score: 0, // 0 = no data logged
+        note: "No mood logged this day.",
+      };
+    }
+
+    const moodCounts = { high: 0, okay: 0, low: 0 };
+    let scoreSum = 0;
+
+    dayEvents.forEach((ev) => {
+      const mood = normalizeMood(ev.emotion);
+      moodCounts[mood] = (moodCounts[mood] || 0) + 1;
+      scoreSum += moodScore(mood);
+    });
+
+    let mood = "okay";
+    if (moodCounts.high >= moodCounts.okay && moodCounts.high >= moodCounts.low)
+      mood = "high";
+    else if (
+      moodCounts.low >= moodCounts.okay &&
+      moodCounts.low >= moodCounts.high
+    )
+      mood = "low";
+
+    const avgScore = scoreSum / dayEvents.length;
+    const roundedScore = Math.round(avgScore); // 1–5 for UI
+
+    let note;
+    if (mood === "high") {
+      note = "Felt comparatively lighter today.";
+    } else if (mood === "low") {
+      note = "Felt heavier or more emotionally loaded today.";
+    } else {
+      note = "Mixed / neutral day overall.";
+    }
+
+    return {
+      id,
+      label: labels[index],
+      mood,
+      score: roundedScore,
+      note,
+    };
+  });
+
+  return {
+    id: fallbackWeek.id,
+    label: fallbackWeek.label,
+    range: fallbackWeek.range,
+    days,
+  };
+}
+
 export default function MoodDashboard({ onBack }) {
+  const { user } = useAuth();
   const [selectedWeekId, setSelectedWeekId] = useState("this-week");
 
-  const activeWeek = useMemo(
-    () => SAMPLE_WEEKS.find((w) => w.id === selectedWeekId) || SAMPLE_WEEKS[0],
-    [selectedWeekId]
-  );
+  // read raw mood events from localStorage
+  const moodEvents = useMemo(() => {
+    if (!user) return [];
+    try {
+      const raw = window.localStorage.getItem(getMoodKey(user.uid));
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      console.error("Failed to read mood events", err);
+      return [];
+    }
+  }, [user]);
+
+  // build "this week" + "last week" views, using real data if present
+  const weeks = useMemo(() => {
+    const [sampleThisWeek, sampleLastWeek] = SAMPLE_WEEKS;
+
+    const realThisWeek = buildWeekFromEvents(
+      moodEvents,
+      0,
+      sampleThisWeek
+    );
+    const realLastWeek = buildWeekFromEvents(
+      moodEvents,
+      -1,
+      sampleLastWeek
+    );
+
+    return [realThisWeek, realLastWeek];
+  }, [moodEvents]);
+
+  const activeWeek = useMemo(() => {
+    return (
+      weeks.find((w) => w.id === selectedWeekId) ||
+      weeks[0] ||
+      SAMPLE_WEEKS[0]
+    );
+  }, [weeks, selectedWeekId]);
 
   const summary = useMemo(() => {
-    const total = activeWeek.days.length || 1;
-    const counts = { high: 0, okay: 0, low: 0 };
+    if (!activeWeek || !activeWeek.days) {
+      return {
+        counts: { high: 0, okay: 0, low: 0 },
+        dominantMood: "okay",
+        avgScore: "–",
+        total: 0,
+      };
+    }
 
-    activeWeek.days.forEach((d) => {
+    const daysWithData = activeWeek.days.filter((d) => d.score > 0);
+    if (daysWithData.length === 0) {
+      return {
+        counts: { high: 0, okay: 0, low: 0 },
+        dominantMood: "okay",
+        avgScore: "–",
+        total: 0,
+      };
+    }
+
+    const counts = { high: 0, okay: 0, low: 0 };
+    daysWithData.forEach((d) => {
       counts[d.mood] = (counts[d.mood] || 0) + 1;
     });
 
     let dominantMood = "okay";
-    if (counts.high >= counts.okay && counts.high >= counts.low) dominantMood = "high";
-    else if (counts.low >= counts.okay && counts.low >= counts.high) dominantMood = "low";
+    if (counts.high >= counts.okay && counts.high >= counts.low)
+      dominantMood = "high";
+    else if (counts.low >= counts.okay && counts.low >= counts.high)
+      dominantMood = "low";
 
     const avgScore =
-      activeWeek.days.reduce((acc, d) => acc + (d.score || 0), 0) / total;
+      daysWithData.reduce((acc, d) => acc + (d.score || 0), 0) /
+      daysWithData.length;
 
     return {
       counts,
       dominantMood,
       avgScore: avgScore.toFixed(1),
-      total,
+      total: daysWithData.length,
     };
   }, [activeWeek]);
 
@@ -99,7 +393,8 @@ export default function MoodDashboard({ onBack }) {
             </h1>
             <p className="mt-1 text-xs md:text-sm text-slate-400 max-w-xl">
               This page summarises how your week emotionally felt, based on your
-              EMOTI conversations. Use it as a gentle reflection, not a scorecard.
+              EMOTI conversations. Use it as a gentle reflection, not a
+              scorecard.
             </p>
           </div>
 
@@ -124,7 +419,7 @@ export default function MoodDashboard({ onBack }) {
               </span>
             </div>
             <div className="flex gap-2 flex-wrap">
-              {SAMPLE_WEEKS.map((week) => (
+              {weeks.map((week) => (
                 <button
                   key={week.id}
                   onClick={() => setSelectedWeekId(week.id)}
@@ -174,23 +469,28 @@ export default function MoodDashboard({ onBack }) {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">Weekly mood line</h3>
               <span className="text-[11px] text-slate-500">
-                Each bar shows how heavy/light the day felt.
+                Each bar shows how heavy/light the day felt based on EMOTI’s
+                responses.
               </span>
             </div>
 
             <div className="mt-4 flex items-end gap-3 h-40">
               {activeWeek.days.map((day) => {
-                const height = (day.score / 5) * 100; // 0–100%
+                const height = day.score > 0 ? (day.score / 5) * 100 : 0;
                 return (
                   <div
                     key={day.id}
                     className="flex-1 flex flex-col items-center gap-2"
                   >
                     <div
-                      className={`w-full max-w-[20px] rounded-full ${moodColor(
-                        day.mood
-                      )} transition`}
-                      style={{ height: `${Math.max(height, 10)}%` }}
+                      className={`w-full max-w-[20px] rounded-full ${
+                        day.score > 0
+                          ? moodColor(day.mood)
+                          : "bg-slate-800/60 border border-slate-700"
+                      } transition`}
+                      style={{
+                        height: `${day.score > 0 ? Math.max(height, 10) : 4}%`,
+                      }}
                     />
                     <span className="text-[10px] text-slate-400">
                       {day.label}
@@ -229,7 +529,9 @@ export default function MoodDashboard({ onBack }) {
               <span className="font-semibold"> lighter</span> days.
             </p>
             <ul className="space-y-1 text-slate-400 list-disc list-inside">
-              <li>Keep a small win or comforting moment from each lighter day.</li>
+              <li>
+                Keep a small win or comforting moment from each lighter day.
+              </li>
               <li>
                 On heavier days, ask: &quot;What exactly was hard?&quot; instead
                 of blaming yourself.
@@ -241,20 +543,26 @@ export default function MoodDashboard({ onBack }) {
 
         {/* Daily notes list */}
         <section className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5">
-          <h3 className="text-sm font-semibold mb-3">Daily emotional snapshots</h3>
+          <h3 className="text-sm font-semibold mb-3">
+            Daily emotional snapshots
+          </h3>
           <p className="text-[11px] text-slate-500 mb-3">
-            These are short summaries of how each day felt. In the future, they
-            can come from EMOTI automatically based on what you talked about.
+            These come from how EMOTI tagged your premium chats for each day.
           </p>
 
           <div className="divide-y divide-slate-800 text-xs">
             {activeWeek.days.map((day) => (
-              <div key={day.id} className="py-3 flex items-start justify-between gap-3">
+              <div
+                key={day.id}
+                className="py-3 flex items-start justify-between gap-3"
+              >
                 <div className="flex items-center gap-2">
                   <span
-                    className={`w-2.5 h-2.5 rounded-full mt-[2px] ${moodColor(
-                      day.mood
-                    )}`}
+                    className={`w-2.5 h-2.5 rounded-full mt-[2px] ${
+                      day.score > 0
+                        ? moodColor(day.mood)
+                        : "bg-slate-700/80"
+                    }`}
                   />
                   <div>
                     <p className="font-medium text-slate-100">{day.label}</p>
@@ -264,7 +572,7 @@ export default function MoodDashboard({ onBack }) {
                   </div>
                 </div>
                 <span className="text-[11px] text-slate-500 whitespace-nowrap">
-                  Score: {day.score}/5
+                  {day.score > 0 ? `Score: ${day.score}/5` : "No data"}
                 </span>
               </div>
             ))}
