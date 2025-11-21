@@ -1,10 +1,8 @@
 // src/components/EmotionImages.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
 
-/**
- * Sample AI emotion images data.
- * Later you can connect this to Firestore or your backend.
- */
+// Fallback sample AI emotion images data (used if no real mood events yet)
 const SAMPLE_EMOTION_IMAGES = [
   {
     id: "calm-1",
@@ -14,7 +12,7 @@ const SAMPLE_EMOTION_IMAGES = [
     description:
       "Soft blue and purple tones with gentle light – representing a calmer, slower evening after a heavy week.",
     tags: ["calm", "relief", "evening"],
-    createdAt: "Today · 9:32 PM",
+    createdAt: "Sample · not yet personalised",
   },
   {
     id: "heavy-1",
@@ -24,7 +22,7 @@ const SAMPLE_EMOTION_IMAGES = [
     description:
       "Dark clouds with thin lines of light trying to break through, visualising looping thoughts and mental noise.",
     tags: ["overthinking", "anxiety", "foggy"],
-    createdAt: "Yesterday · 11:08 PM",
+    createdAt: "Sample · not yet personalised",
   },
   {
     id: "hope-1",
@@ -34,7 +32,7 @@ const SAMPLE_EMOTION_IMAGES = [
     description:
       "Deep navy background with one warm golden window, symbolising a tiny but real sense of hope.",
     tags: ["hope", "resilience", "tiny-win"],
-    createdAt: "2 days ago · 7:21 PM",
+    createdAt: "Sample · not yet personalised",
   },
   {
     id: "mixed-1",
@@ -44,10 +42,11 @@ const SAMPLE_EMOTION_IMAGES = [
     description:
       "Split sky: one side clear and blue, the other cloudy and muted, capturing a day that felt both okay and heavy.",
     tags: ["mixed", "up-and-down", "processing"],
-    createdAt: "3 days ago · 10:15 PM",
+    createdAt: "Sample · not yet personalised",
   },
 ];
 
+// same 4 categories we show in the UI
 function moodColor(mood) {
   switch (mood) {
     case "calm":
@@ -76,6 +75,7 @@ function moodLabel(mood) {
   }
 }
 
+// Filter chips
 const FILTERS = [
   { id: "all", label: "All moods" },
   { id: "calm", label: "Calm" },
@@ -84,13 +84,176 @@ const FILTERS = [
   { id: "mixed", label: "Mixed" },
 ];
 
+// -------- helpers to read mood events from localStorage --------
+
+function getMoodKey(uid) {
+  return `emoti_mood_events_${uid}`;
+}
+
+function mapEmotionToMood(emotion) {
+  if (!emotion) return "mixed";
+  const e = String(emotion).toLowerCase();
+
+  if (["calm", "relaxed", "grounded", "peaceful", "relief"].includes(e))
+    return "calm";
+
+  if (
+    ["hopeful", "optimistic", "motivated", "encouraged", "excited"].includes(e)
+  )
+    return "hopeful";
+
+  if (
+    [
+      "sad",
+      "low",
+      "down",
+      "depressed",
+      "stressed",
+      "anxious",
+      "overwhelmed",
+      "lonely",
+      "angry",
+      "upset",
+      "heavy",
+    ].includes(e)
+  )
+    return "heavy";
+
+  if (["okay", "neutral", "mixed", "tired", "meh"].includes(e)) return "mixed";
+
+  // default bucket
+  return "mixed";
+}
+
+// create one “image card” per recent day of mood events (max 6)
+function buildImagesFromEvents(events) {
+  if (!events || events.length === 0) return [];
+
+  // sort newest first
+  const sorted = [...events].sort((a, b) => b.ts - a.ts);
+
+  // group by date (YYYY-MM-DD)
+  const byDay = new Map();
+  for (const ev of sorted) {
+    if (!ev.ts || !ev.emotion) continue;
+    const d = new Date(ev.ts);
+    const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+    const mood = mapEmotionToMood(ev.emotion);
+
+    if (!byDay.has(key)) {
+      byDay.set(key, { date: d, counts: { calm: 0, hopeful: 0, heavy: 0, mixed: 0 } });
+    }
+    byDay.get(key).counts[mood] += 1;
+  }
+
+  const dayEntries = Array.from(byDay.values())
+    .sort((a, b) => b.date - a.date)
+    .slice(0, 6); // last 6 days max
+
+  const results = dayEntries.map((entry, idx) => {
+    const { date, counts } = entry;
+    // find dominant mood for that day
+    let dominant = "mixed";
+    let best = -1;
+    for (const m of ["calm", "hopeful", "heavy", "mixed"]) {
+      if (counts[m] > best) {
+        best = counts[m];
+        dominant = m;
+      }
+    }
+
+    const { title, tone, description, tags } = getPresetForMood(dominant, idx);
+
+    const createdAt = date.toLocaleString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    return {
+      id: `auto-${date.toISOString()}`,
+      title,
+      mood: dominant,
+      tone,
+      description,
+      tags,
+      createdAt,
+    };
+  });
+
+  return results;
+}
+
+function getPresetForMood(mood, index = 0) {
+  switch (mood) {
+    case "calm":
+      return {
+        title: index === 0 ? "Quiet pocket of calm" : "Soft, grounded evening",
+        tone: "Soft, peaceful, slightly reflective",
+        description:
+          "Gentle blue tones with soft light – like a slower, calmer moment after emotional noise.",
+        tags: ["calm", "grounded", "slow-breath"],
+      };
+    case "hopeful":
+      return {
+        title: index === 0 ? "Small window of hope" : "Quiet hopeful shift",
+        tone: "Gentle but bright, like a small light in a dark room",
+        description:
+          "Deep navy background with a warm golden glow, symbolising tiny but real bits of hope showing up.",
+        tags: ["hopeful", "tiny-win", "growing"],
+      };
+    case "heavy":
+      return {
+        title: index === 0 ? "Heavy cloud day" : "Overthinking storm",
+        tone: "Dense, slightly chaotic, heavy in the chest",
+        description:
+          "Dark clouds with thin streaks of light trying to break through – mirroring stress, worry, and emotional weight.",
+        tags: ["heavy", "anxious", "tired"],
+      };
+    case "mixed":
+    default:
+      return {
+        title: index === 0 ? "Mixed sky, mixed day" : "Up & down waves",
+        tone: "Half bright, half cloudy – up and down",
+        description:
+          "One side clear and bright, the other cloudy and muted, for days that felt both okay and heavy at the same time.",
+        tags: ["mixed", "up-and-down", "processing"],
+      };
+  }
+}
+
 export default function EmotionImages({ onBack }) {
+  const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState("all");
+  const [images, setImages] = useState(SAMPLE_EMOTION_IMAGES);
+
+  // Load mood events from localStorage and build personalised images
+  useEffect(() => {
+    if (!user) return;
+    if (typeof window === "undefined") return;
+
+    try {
+      const key = getMoodKey(user.uid);
+      const raw = window.localStorage.getItem(key);
+      const events = raw ? JSON.parse(raw) : [];
+
+      const built = buildImagesFromEvents(events);
+
+      // if we have any real data, use it; otherwise keep the sample cards
+      if (built.length > 0) {
+        setImages(built);
+      }
+    } catch (err) {
+      console.error("Failed to load mood events for EmotionImages:", err);
+    }
+  }, [user]);
 
   const visibleImages = useMemo(() => {
-    if (activeFilter === "all") return SAMPLE_EMOTION_IMAGES;
-    return SAMPLE_EMOTION_IMAGES.filter((img) => img.mood === activeFilter);
-  }, [activeFilter]);
+    if (activeFilter === "all") return images;
+    return images.filter((img) => img.mood === activeFilter);
+  }, [activeFilter, images]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 pb-16">
@@ -276,14 +439,14 @@ export default function EmotionImages({ onBack }) {
                   If this picture could talk, what would it say about what you
                   need right now?
                 </li>
-                <li>Is there a small action that matches the &quot;hopeful&quot; image?</li>
+                <li>
+                  Is there a small action that matches the &quot;hopeful&quot; image?
+                </li>
               </ul>
             </div>
 
             <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-4">
-              <p className="text-[11px] text-slate-400 mb-1">
-                Coming soon
-              </p>
+              <p className="text-[11px] text-slate-400 mb-1">Coming soon</p>
               <p className="text-slate-300">
                 In the future, EMOTI can auto-generate new images after intense
                 or important chats, so you&apos;ll slowly build a visual diary of
