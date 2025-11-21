@@ -27,6 +27,34 @@ function getStorageKey(uid) {
   return `emoti_premium_sessions_${uid}`;
 }
 
+// localStorage key for mood events (used by MoodDashboard)
+function getMoodKey(uid) {
+  return `emoti_mood_events_${uid}`;
+}
+
+// save one mood point (called whenever EMOTI replies with an emotion)
+function appendMoodEvent(uid, emotion) {
+  if (!uid || !emotion) return;
+
+  const key = getMoodKey(uid);
+  try {
+    const raw = window.localStorage.getItem(key);
+    const existing = raw ? JSON.parse(raw) : [];
+
+    const updated = [
+      ...existing,
+      {
+        ts: Date.now(), // timestamp
+        emotion, // e.g. "low", "okay", "high", "stressed"
+      },
+    ].slice(-500); // keep last 500 events only
+
+    window.localStorage.setItem(key, JSON.stringify(updated));
+  } catch (err) {
+    console.error("Failed to append mood event", err);
+  }
+}
+
 export default function PremiumChat() {
   const { user } = useAuth();
 
@@ -142,9 +170,7 @@ export default function PremiumChat() {
     if (!user || !activeSessionId) return;
 
     setSessions((prev) =>
-      prev.map((s) =>
-        s.id === activeSessionId ? { ...s, messages } : s
-      )
+      prev.map((s) => (s.id === activeSessionId ? { ...s, messages } : s))
     );
   }, [messages, user, activeSessionId]);
 
@@ -287,9 +313,10 @@ export default function PremiumChat() {
       }
 
       const data = await res.json();
-      const reply =
-        data.reply || "Thank you for sharing. Tell me a bit more?";
+      const reply = data.reply || "Thank you for sharing. Tell me a bit more?";
       const emotion = data.emotion || "okay";
+
+      appendMoodEvent(user?.uid, emotion);
 
       setMessages((m) => [
         ...m,
@@ -360,19 +387,23 @@ export default function PremiumChat() {
             time: now,
           };
 
+          const emotion = data.emotion || "okay"; // make sure backend returns this
+
           const emotiMsg = {
             id: now + 1,
             from: "emoti",
             text: data.reply_text,
             time: Date.now(),
+            emotion,
           };
+
+          // NEW: log this emotion for the MoodDashboard
+          appendMoodEvent(user?.uid, emotion);
 
           setMessages((m) => [...m, userMsg, emotiMsg]);
 
           if (data.audio) {
-            const audio = new Audio(
-              "data:audio/mp3;base64," + data.audio
-            );
+            const audio = new Audio("data:audio/mp3;base64," + data.audio);
             audio.play();
           }
         } catch (err) {
