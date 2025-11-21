@@ -1,4 +1,5 @@
 // src/App.jsx
+import EmotionPlaylist from "./components/EmotionPlaylist"; // ✅ NEW
 import MoodDashboard from "./components/MoodDashboard";
 import PremiumChat from "./components/PremiumChat";
 import React, { useRef, useState } from "react";
@@ -12,7 +13,8 @@ export default function App() {
   const chatRef = useRef(null);
   const { user, isPremium, logout, loginWithGoogle } = useAuth();
 
-  // "dashboard" | "chat" | "mood" | "images"   ✅ UPDATED
+  // "dashboard" | "chat" | "mood" | "images" | "music"
+
   const [premiumView, setPremiumView] = useState("dashboard");
 
   const scrollToChat = () => {
@@ -43,10 +45,16 @@ export default function App() {
     }
   };
 
-  // ✅ NEW: open AI Emotion Images view
   const openEmotionImages = () => {
     if (user && isPremium) {
       setPremiumView("images");
+    }
+  };
+
+  // ✅ NEW: open Emotion Playlist
+  const openEmotionPlaylist = () => {
+    if (user && isPremium) {
+      setPremiumView("music");
     }
   };
 
@@ -236,6 +244,8 @@ export default function App() {
       ) : user && isPremium && premiumView === "images" ? (
         // ✅ NEW: AI Emotion Images full page
         <EmotionImages onBack={goToPremiumDashboard} />
+      ) : user && isPremium && premiumView === "music" ? (
+        <EmotionPlaylist onBack={goToPremiumDashboard} />
       ) : (
         <>
           {/* PREMIUM HOMEPAGE (only for premium users) */}
@@ -245,7 +255,7 @@ export default function App() {
               onOpenPremiumChat={openPremiumChat}
               onOpenMoodDashboard={openMoodDashboard}
               onOpenEmotionImages={openEmotionImages}
-              onOpenPreviousChats={() => {}}
+              onOpenEmotionPlaylist={openEmotionPlaylist} // ✅ NEW
             />
           )}
 
