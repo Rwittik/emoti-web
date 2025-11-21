@@ -1,4 +1,4 @@
-// src/components/Chat.jsx
+// src/components/chat.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 
@@ -23,7 +23,8 @@ function getInitialMessages() {
 }
 
 export default function Chat() {
-  const { user } = useAuth();
+  // ⬇️ now also read isPremium so we can show different text for normal users
+  const { user, isPremium } = useAuth();
 
   const [messages, setMessages] = useState(getInitialMessages);
   const [input, setInput] = useState("");
@@ -261,16 +262,40 @@ export default function Chat() {
     <div className="w-full max-w-2xl bg-slate-900/70 backdrop-blur rounded-2xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
       {/* HEADER */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/90">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#38bdf8] flex items-center justify-center text-white font-bold text-lg">
-            E
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#38bdf8] flex items-center justify-center text-white font-bold text-lg">
+              E
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold">EMOTI</h2>
+              <p className="text-[11px] text-slate-400">
+                Anonymous emotional companion
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-sm font-semibold">EMOTI</h2>
-            <p className="text-[11px] text-slate-400">
-              Anonymous emotional companion
+
+          {/* Little status line for normal / guest / premium users */}
+          {!user && (
+            <p className="text-[10px] text-amber-300 mt-0.5">
+              You&apos;re in guest mode. Chats are not saved and will reset if
+              you refresh. Sign in from the top bar to keep your conversation.
             </p>
-          </div>
+          )}
+
+          {user && !isPremium && (
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Free mode · Your messages are only stored on this device. Upgrade
+              to EMOTI Premium for mood history, images & your own dashboard.
+            </p>
+          )}
+
+          {user && isPremium && (
+            <p className="text-[10px] text-emerald-300 mt-0.5">
+              Premium active · This basic chat is for quick talks. Your longer
+              reflections live in the Premium chatroom & mood tools.
+            </p>
+          )}
         </div>
 
         {/* LANGUAGE + PERSONALITY */}
