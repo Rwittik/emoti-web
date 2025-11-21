@@ -1,14 +1,6 @@
 // src/components/Chat.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { db } from "../firebase";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  orderBy,
-} from "firebase/firestore";
 
 const API_URL = "/api/chat";
 
@@ -17,7 +9,7 @@ function formatTime(ts) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-// default welcome message
+// Default welcome message
 function getInitialMessages() {
   return [
     {
@@ -31,7 +23,7 @@ function getInitialMessages() {
 }
 
 export default function Chat() {
-  const { user, loadingAuth } = useAuth();
+  const { user } = useAuth();
 
   const [messages, setMessages] = useState(getInitialMessages);
   const [input, setInput] = useState("");
@@ -53,69 +45,50 @@ export default function Chat() {
   }, [messages]);
 
   // --------------------------------
-  // Load stored messages per user
+  // Load messages per user (localStorage)
   // --------------------------------
   useEffect(() => {
-    if (loadingAuth) return;
-
-    // logged out → clear chat
+    // Logged out → clear chat
     if (!user) {
       setMessages(getInitialMessages());
       return;
     }
 
-    const loadMessages = async () => {
-      try {
-        const msgsRef = collection(db, "users", user.uid, "messages");
-        const q = query(msgsRef, orderBy("time", "asc"));
-        const snap = await getDocs(q);
-
-        if (snap.empty) {
-          setMessages(getInitialMessages());
-          return;
-        }
-
-        const loaded = snap.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            from: data.from,
-            text: data.text,
-            time: data.time || Date.now(),
-            emotion: data.emotion || undefined,
-          };
-        });
-
-        setMessages(loaded);
-      } catch (err) {
-        console.error("Failed to load messages", err);
-        setMessages(getInitialMessages());
-      }
-    };
-
-    loadMessages();
-  }, [user, loadingAuth]);
-
-  // --------------------------------
-  // Save messages to Firestore
-  // --------------------------------
-  async function saveMessagesToFirestore(msgArray) {
-    if (!user) return; // guest chats are not persisted
+    const key = `emoti_chat_${user.uid}`;
 
     try {
-      const msgsRef = collection(db, "users", user.uid, "messages");
-      for (const m of msgArray) {
-        await addDoc(msgsRef, {
-          from: m.from,
-          text: m.text,
-          time: m.time,
-          emotion: m.emotion || null,
-        });
+      const stored = window.localStorage.getItem(key);
+      if (!stored) {
+        setMessages(getInitialMessages());
+        return;
+      }
+
+      const parsed = JSON.parse(stored);
+
+      // basic validation
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setMessages(parsed);
+      } else {
+        setMessages(getInitialMessages());
       }
     } catch (err) {
-      console.error("Failed to save messages", err);
+      console.error("Failed to load stored chat:", err);
+      setMessages(getInitialMessages());
     }
-  }
+  }, [user]);
+
+  // --------------------------------
+  // Save messages whenever they change (only when logged in)
+  // --------------------------------
+  useEffect(() => {
+    if (!user) return;
+    const key = `emoti_chat_${user.uid}`;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(messages));
+    } catch (err) {
+      console.error("Failed to save chat:", err);
+    }
+  }, [messages, user]);
 
   // -----------------------------
   // TEXT CHAT SEND
@@ -148,15 +121,16 @@ export default function Chat() {
       });
 
       if (!res.ok) {
-        const errMsg = {
-          id: now + 1,
-          from: "emoti",
-          text: "Server unavailable — please try again.",
-          time: Date.now(),
-          emotion: "stressed",
-        };
-        setMessages((m) => [...m, errMsg]);
-        await saveMessagesToFirestore([userMsg, errMsg]);
+        setMessages((m) => [
+          ...m,
+          {
+            id: now + 1,
+            from: "emoti",
+            text: "Server unavailable — please try again.",
+            time: Date.now(),
+            emotion: "stressed",
+          },
+        ]);
         return;
       }
 
@@ -164,26 +138,27 @@ export default function Chat() {
       const reply = data.reply || "Thank you for sharing. Tell me more.";
       const emotion = data.emotion || "okay";
 
-      const emotiMsg = {
-        id: now + 2,
-        from: "emoti",
-        text: reply,
-        time: Date.now(),
-        emotion,
-      };
-
-      setMessages((m) => [...m, emotiMsg]);
-      await saveMessagesToFirestore([userMsg, emotiMsg]);
+      setMessages((m) => [
+        ...m,
+        {
+          id: now + 2,
+          from: "emoti",
+          text: reply,
+          time: Date.now(),
+          emotion,
+        },
+      ]);
     } catch (e) {
-      const errMsg = {
-        id: Date.now() + 3,
-        from: "emoti",
-        text: "Network error. Please try again.",
-        time: Date.now(),
-        emotion: "stressed",
-      };
-      setMessages((m) => [...m, errMsg]);
-      await saveMessagesToFirestore([userMsg, errMsg]);
+      setMessages((m) => [
+        ...m,
+        {
+          id: Date.now() + 3,
+          from: "emoti",
+          text: "Network error. Please try again.",
+          time: Date.now(),
+          emotion: "stressed",
+        },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -240,7 +215,6 @@ export default function Chat() {
           };
 
           setMessages((m) => [...m, userMsg, emotiMsg]);
-          await saveMessagesToFirestore([userMsg, emotiMsg]);
 
           if (data.audio) {
             const audio = new Audio(
@@ -249,14 +223,15 @@ export default function Chat() {
             audio.play();
           }
         } catch (err) {
-          const errMsg = {
-            id: Date.now() + 2,
-            from: "emoti",
-            text: "I had trouble processing that voice message.",
-            time: Date.now(),
-          };
-          setMessages((m) => [...m, errMsg]);
-          await saveMessagesToFirestore([errMsg]);
+          setMessages((m) => [
+            ...m,
+            {
+              id: Date.now() + 2,
+              from: "emoti",
+              text: "I had trouble processing that voice message.",
+              time: Date.now(),
+            },
+          ]);
         } finally {
           setLoading(false);
         }
