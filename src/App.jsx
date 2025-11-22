@@ -14,7 +14,6 @@ export default function App() {
   const { user, isPremium, logout, loginWithGoogle } = useAuth();
 
   // "dashboard" | "chat" | "mood" | "images" | "music"
-
   const [premiumView, setPremiumView] = useState("dashboard");
 
   const scrollToChat = () => {
@@ -172,7 +171,8 @@ export default function App() {
       {user && isPremium && premiumView === "chat" ? (
         <main className="bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[calc(100vh-56px)]">
           <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-            <div className="flex items-center justify-between mb-4">
+            {/* 🔹 mobile stack, desktop same row */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
               <div>
                 <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
                   Premium chatroom
@@ -188,7 +188,7 @@ export default function App() {
               </div>
               <button
                 onClick={goToPremiumDashboard}
-                className="text-xs md:text-sm px-3 py-1.5 rounded-full border border-slate-700 hover:border-sky-400 hover:text-sky-300"
+                className="text-xs md:text-sm px-3 py-1.5 rounded-full border border-slate-700 hover:border-sky-400 hover:text-sky-300 self-start sm:self-auto"
               >
                 ← Back to dashboard
               </button>
@@ -196,7 +196,7 @@ export default function App() {
 
             <div className="mt-6 w-full">
               {/* Small strip above the chat */}
-              <div className="mb-3 flex items-center justify-between text-[11px] text-slate-400 max-w-4xl mx-auto">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[11px] text-slate-400 max-w-4xl mx-auto">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px]">
                     🙂
@@ -534,7 +534,7 @@ export default function App() {
               {/* New chat frame */}
               <div className="w-full max-w-3xl">
                 {/* top strip with small avatars */}
-                <div className="mb-2 flex items-center justify-between text-[11px] text-slate-400">
+                <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[11px] text-slate-400">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[10px]">
                       🙂
