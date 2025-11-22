@@ -204,7 +204,7 @@ export default function PremiumHomepage({
       </section>
 
       {/* -------- MOOD TREND + RIGHT COLUMN -------- */}
-      <section className="max-w-6xl mx-auto px-5 py-10 grid lg:grid-cols-3 gap-6">
+      <section className="max-w-6xl mx-auto px-5 py-10 grid lg:grid-cols-3 gap-6 items-start">
         {/* This week's mood trend preview */}
         <div className="lg:col-span-2 rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl shadow-black/40">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
