@@ -69,20 +69,61 @@ export default function Journal() {
   const [summary, setSummary] = useState("");
   const [summarizing, setSummarizing] = useState(false);
 
+  const getCacheKey = (uid) => `journal_${uid}`;
+
   // ---------------------------
-  // Load entries from Firestore
+  // Load entries from Firestore + localStorage
   // ---------------------------
   useEffect(() => {
-    if (!user) return;
+    // If user logs out, clear local state
+    if (!user) {
+      setEntries([]);
+      setText("");
+      setEditingId(null);
+      setSummary("");
+      return;
+    }
 
+    // 1) Hydrate from localStorage immediately (for fast load after refresh)
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(getCacheKey(user.uid));
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            setEntries(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to read journal cache:", err);
+      }
+    }
+
+    // 2) Live Firestore sync
     const q = query(
       collection(db, "users", user.uid, "journalEntries"),
       orderBy("createdAt", "desc")
     );
 
-    const unsub = onSnapshot(q, (snap) => {
-      setEntries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setEntries(list);
+
+        // Update localStorage cache for this user
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(getCacheKey(user.uid), JSON.stringify(list));
+          } catch (err) {
+            console.warn("Failed to write journal cache:", err);
+          }
+        }
+      },
+      (error) => {
+        console.error("Journal snapshot error:", error);
+      }
+    );
 
     return () => unsub();
   }, [user]);
@@ -152,6 +193,7 @@ export default function Journal() {
       if (editingId === id) {
         cancelEdit();
       }
+      // localStorage is kept in sync automatically by onSnapshot
     } catch (err) {
       console.error("Failed to delete entry:", err);
       alert("Could not delete this entry. Please try again.");
