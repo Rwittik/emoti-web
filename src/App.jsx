@@ -1,5 +1,4 @@
 // src/App.jsx
-import EmotionImages from "./components/EmotionImages"; // ✅ NEW
 import Journal from "./components/Journal"; // ✅ ADD THIS
 import EmotionPlaylist from "./components/EmotionPlaylist"; // ✅ NEW
 import MoodDashboard from "./components/MoodDashboard";
