@@ -23,7 +23,7 @@ function getInitialMessages() {
 }
 
 export default function Chat() {
-  // we read isPremium so we can lock voice
+  // ⬇️ we read isPremium so we can lock voice
   const { user, isPremium } = useAuth();
 
   const [messages, setMessages] = useState(getInitialMessages);
@@ -38,7 +38,7 @@ export default function Chat() {
 
   const boxRef = useRef(null);
 
-  const canUseVoice = !!user && isPremium; // only premium & logged in
+  const canUseVoice = !!user && isPremium; // ✅ only premium & logged in
 
   // Auto scroll chat
   useEffect(() => {
@@ -265,7 +265,7 @@ export default function Chat() {
   return (
     <div className="w-full max-w-2xl bg-slate-900/70 backdrop-blur rounded-2xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
       {/* HEADER */}
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/90">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/90">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#38bdf8] flex items-center justify-center text-white font-bold text-lg">
@@ -303,7 +303,7 @@ export default function Chat() {
         </div>
 
         {/* LANGUAGE + PERSONALITY */}
-        <div className="flex flex-wrap items-center gap-2 justify-end">
+        <div className="flex items-center gap-2">
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
@@ -335,7 +335,7 @@ export default function Chat() {
       {/* CHAT MESSAGES */}
       <main
         ref={boxRef}
-        className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 bg-slate-950/70 min-h-[260px] md:min-h-[320px]"
+        className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/70"
       >
         {messages.map((msg) => (
           <div
@@ -383,7 +383,7 @@ export default function Chat() {
 
       {/* INPUT + VOICE */}
       <footer className="border-t border-slate-800 bg-slate-900/90 px-3 py-2">
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex gap-2">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -396,16 +396,16 @@ export default function Chat() {
           <button
             onClick={sendMessage}
             disabled={loading}
-            className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white px-4 py-2 rounded text-sm w-full sm:w-auto"
+            className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white px-4 py-2 rounded text-sm"
           >
             {loading ? "…" : "Send"}
           </button>
 
-          {/* Voice button: premium only */}
+          {/* 🔒 Voice button: premium only */}
           {canUseVoice ? (
             <button
               onClick={recording ? stopRecording : startRecording}
-              className={`flex items-center gap-1 px-4 py-2 rounded text-sm text-white w-full sm:w-auto ${
+              className={`flex items-center gap-1 px-4 py-2 rounded text-sm text-white ${
                 recording ? "bg-red-600" : "bg-purple-600"
               }`}
             >
@@ -418,7 +418,7 @@ export default function Chat() {
             <button
               type="button"
               disabled
-              className="flex items-center gap-1 px-4 py-2 rounded text-sm border border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed w-full sm:w-auto"
+              className="flex items-center gap-1 px-4 py-2 rounded text-sm border border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
               title="Voice notes are available in EMOTI Premium"
             >
               <span role="img" aria-label="lock">
