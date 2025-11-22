@@ -36,8 +36,8 @@ function getMoodKey(uid) {
 function appendMoodEvent(uid, emotion) {
   if (!uid || !emotion) return;
 
+  const key = getMoodKey(uid);
   try {
-    const key = getMoodKey(uid);
     const raw = window.localStorage.getItem(key);
     const existing = raw ? JSON.parse(raw) : [];
 
@@ -45,7 +45,7 @@ function appendMoodEvent(uid, emotion) {
       ...existing,
       {
         ts: Date.now(), // timestamp
-        emotion, // e.g. "low", "okay", "high", "stressed", "anxious but hopeful"
+        emotion, // e.g. "low", "okay", "high", "stressed"
       },
     ].slice(-500); // keep last 500 events only
 
@@ -260,6 +260,7 @@ export default function PremiumChat() {
       return filtered;
     });
 
+    // apply new active + messages after sessions updated
     if (nextActive) {
       setActiveSessionId(nextActive.id);
       setMessages(nextMessages);
@@ -298,10 +299,6 @@ export default function PremiumChat() {
       });
 
       if (!res.ok) {
-        // ❗ ensure we still log a "stressed" mood point
-        const emotion = "stressed";
-        appendMoodEvent(user?.uid, emotion);
-
         setMessages((m) => [
           ...m,
           {
@@ -309,18 +306,16 @@ export default function PremiumChat() {
             from: "emoti",
             text: "Premium server is busy — please try again.",
             time: Date.now(),
-            emotion,
+            emotion: "stressed",
           },
         ]);
         return;
       }
 
       const data = await res.json();
-      const reply =
-        data.reply || "Thank you for sharing. Tell me a bit more?";
+      const reply = data.reply || "Thank you for sharing. Tell me a bit more?";
       const emotion = data.emotion || "okay";
 
-      // Log mood for dashboard
       appendMoodEvent(user?.uid, emotion);
 
       setMessages((m) => [
@@ -334,9 +329,6 @@ export default function PremiumChat() {
         },
       ]);
     } catch (e) {
-      const emotion = "stressed";
-      appendMoodEvent(user?.uid, emotion);
-
       setMessages((m) => [
         ...m,
         {
@@ -344,7 +336,7 @@ export default function PremiumChat() {
           from: "emoti",
           text: "Network error. Please try again.",
           time: Date.now(),
-          emotion,
+          emotion: "stressed",
         },
       ]);
     } finally {
@@ -395,7 +387,7 @@ export default function PremiumChat() {
             time: now,
           };
 
-          const emotion = data.emotion || "okay";
+          const emotion = data.emotion || "okay"; // make sure backend returns this
 
           const emotiMsg = {
             id: now + 1,
@@ -405,7 +397,7 @@ export default function PremiumChat() {
             emotion,
           };
 
-          // Log emotion for dashboard
+          // NEW: log this emotion for the MoodDashboard
           appendMoodEvent(user?.uid, emotion);
 
           setMessages((m) => [...m, userMsg, emotiMsg]);
@@ -422,10 +414,8 @@ export default function PremiumChat() {
               from: "emoti",
               text: "I had trouble processing that voice message.",
               time: Date.now(),
-              emotion: "stressed",
             },
           ]);
-          appendMoodEvent(user?.uid, "stressed");
         } finally {
           setLoading(false);
         }
@@ -628,7 +618,9 @@ export default function PremiumChat() {
             <button
               onClick={recording ? stopRecording : startRecording}
               className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                recording ? "bg-rose-600 text-white" : "bg-purple-600 text-white"
+                recording
+                  ? "bg-rose-600 text-white"
+                  : "bg-purple-600 text-white"
               }`}
             >
               {recording ? "Stop premium voice 🎙" : "Premium voice 🎤"}
