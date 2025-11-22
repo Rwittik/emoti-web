@@ -1,4 +1,6 @@
 // src/App.jsx
+import EmotionImages from "./components/EmotionImages"; // ✅ NEW
+import Journal from "./components/Journal"; // ✅ ADD THIS
 import EmotionPlaylist from "./components/EmotionPlaylist"; // ✅ NEW
 import MoodDashboard from "./components/MoodDashboard";
 import PremiumChat from "./components/PremiumChat";
@@ -13,7 +15,7 @@ export default function App() {
   const chatRef = useRef(null);
   const { user, isPremium, logout, loginWithGoogle } = useAuth();
 
-  // "dashboard" | "chat" | "mood" | "images" | "music"
+  // "dashboard" | "chat" | "mood" | "images" | "music" | "journal"
   const [premiumView, setPremiumView] = useState("dashboard");
 
   const scrollToChat = () => {
@@ -54,6 +56,13 @@ export default function App() {
   const openEmotionPlaylist = () => {
     if (user && isPremium) {
       setPremiumView("music");
+    }
+  };
+
+  // ✅ NEW: open Emotional Journal
+  const openJournal = () => {
+    if (user && isPremium) {
+      setPremiumView("journal");
     }
   };
 
@@ -244,6 +253,32 @@ export default function App() {
       ) : user && isPremium && premiumView === "images" ? (
         // ✅ NEW: AI Emotion Images full page
         <EmotionImages onBack={goToPremiumDashboard} />
+      ) : user && isPremium && premiumView === "journal" ? (
+        // ✅ NEW: Emotional Journal full page
+        <main className="bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[calc(100vh-56px)]">
+          <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+              <div>
+                <h1 className="text-xl md:text-2xl font-semibold">
+                  Emotional journal
+                </h1>
+                <p className="text-sm text-slate-400 mt-1">
+                  Capture small reflections from your day. Only you can see
+                  these entries.
+                </p>
+              </div>
+              <button
+                onClick={goToPremiumDashboard}
+                className="text-xs md:text-sm px-3 py-1.5 rounded-full border border-slate-700 hover:border-sky-400 hover:text-sky-300 self-start sm:self-auto"
+              >
+                ← Back to dashboard
+              </button>
+            </div>
+
+            {/* Existing Journal component */}
+            <Journal />
+          </section>
+        </main>
       ) : user && isPremium && premiumView === "music" ? (
         <EmotionPlaylist onBack={goToPremiumDashboard} />
       ) : (

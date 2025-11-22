@@ -30,7 +30,7 @@ export default function PremiumHomepage({
   onOpenMoodDashboard = () => {},
   onOpenEmotionImages = () => {},
   onOpenEmotionPlaylist = () => {}, // 🔸 Emotion playlist opener
-  onOpenJournal = () => {}, // 🔸 NEW: Emotional journal opener
+  onOpenJournal={openJournal}, // 🔸 NEW: Emotional journal opener
   user,
 }) {
   const firstName =
