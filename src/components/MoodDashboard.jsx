@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 
 /**
  * Fallback sample weekly mood data.
- * Used only when the user has no real mood events yet.
+ * Used only when there is no real mood data at all.
  */
 const SAMPLE_WEEKS = [
   {
@@ -12,55 +12,13 @@ const SAMPLE_WEEKS = [
     label: "This week",
     range: "Mon – Sun",
     days: [
-      {
-        id: "mon",
-        label: "Mon",
-        mood: "low",
-        score: 2,
-        note: "Felt heavy and tired after work.",
-      },
-      {
-        id: "tue",
-        label: "Tue",
-        mood: "okay",
-        score: 3,
-        note: "Normal day, a bit stressed about tasks.",
-      },
-      {
-        id: "wed",
-        label: "Wed",
-        mood: "high",
-        score: 4,
-        note: "Good conversation with a friend.",
-      },
-      {
-        id: "thu",
-        label: "Thu",
-        mood: "low",
-        score: 2,
-        note: "Overthinking at night.",
-      },
-      {
-        id: "fri",
-        label: "Fri",
-        mood: "okay",
-        score: 3,
-        note: "Finished some pending work.",
-      },
-      {
-        id: "sat",
-        label: "Sat",
-        mood: "high",
-        score: 5,
-        note: "Felt relaxed, watched a movie.",
-      },
-      {
-        id: "sun",
-        label: "Sun",
-        mood: "okay",
-        score: 3,
-        note: "Mixed – calm but a little lonely.",
-      },
+      { id: "mon", label: "Mon", mood: "low", score: 2, note: "Felt heavy and tired after work." },
+      { id: "tue", label: "Tue", mood: "okay", score: 3, note: "Normal day, a bit stressed about tasks." },
+      { id: "wed", label: "Wed", mood: "high", score: 4, note: "Good conversation with a friend." },
+      { id: "thu", label: "Thu", mood: "low", score: 2, note: "Overthinking at night." },
+      { id: "fri", label: "Fri", mood: "okay", score: 3, note: "Finished some pending work." },
+      { id: "sat", label: "Sat", mood: "high", score: 5, note: "Felt relaxed, watched a movie." },
+      { id: "sun", label: "Sun", mood: "okay", score: 3, note: "Mixed – calm but a little lonely." },
     ],
   },
   {
@@ -68,55 +26,13 @@ const SAMPLE_WEEKS = [
     label: "Last week",
     range: "Mon – Sun",
     days: [
-      {
-        id: "mon",
-        label: "Mon",
-        mood: "low",
-        score: 1,
-        note: "Argument at home.",
-      },
-      {
-        id: "tue",
-        label: "Tue",
-        mood: "low",
-        score: 2,
-        note: "Couldn’t focus on study/work.",
-      },
-      {
-        id: "wed",
-        label: "Wed",
-        mood: "okay",
-        score: 3,
-        note: "Slowly felt a bit better.",
-      },
-      {
-        id: "thu",
-        label: "Thu",
-        mood: "okay",
-        score: 3,
-        note: "Normal, nothing special.",
-      },
-      {
-        id: "fri",
-        label: "Fri",
-        mood: "high",
-        score: 4,
-        note: "Fun evening outside.",
-      },
-      {
-        id: "sat",
-        label: "Sat",
-        mood: "high",
-        score: 4,
-        note: "Productive and light mood.",
-      },
-      {
-        id: "sun",
-        label: "Sun",
-        mood: "okay",
-        score: 3,
-        note: "Rest + planning for next week.",
-      },
+      { id: "mon", label: "Mon", mood: "low", score: 1, note: "Argument at home." },
+      { id: "tue", label: "Tue", mood: "low", score: 2, note: "Couldn’t focus on study/work." },
+      { id: "wed", label: "Wed", mood: "okay", score: 3, note: "Slowly felt a bit better." },
+      { id: "thu", label: "Thu", mood: "okay", score: 3, note: "Normal, nothing special." },
+      { id: "fri", label: "Fri", mood: "high", score: 4, note: "Fun evening outside." },
+      { id: "sat", label: "Sat", mood: "high", score: 4, note: "Productive and light mood." },
+      { id: "sun", label: "Sun", mood: "okay", score: 3, note: "Rest + planning for next week." },
     ],
   },
 ];
@@ -139,7 +55,7 @@ function moodLabel(mood) {
   return "Heavy / Low";
 }
 
-// same key that PremiumChat uses
+// same key that PremiumChat should use
 function getMoodKey(uid) {
   return `emoti_mood_events_${uid}`;
 }
@@ -149,7 +65,6 @@ function normalizeMood(rawEmotion) {
   if (!rawEmotion) return "okay";
   const e = String(rawEmotion).toLowerCase();
 
-  // clearly heavy/low emotions
   if (
     [
       "anxious",
@@ -169,7 +84,6 @@ function normalizeMood(rawEmotion) {
     return "low";
   }
 
-  // clearly positive
   if (
     [
       "high",
@@ -188,7 +102,6 @@ function normalizeMood(rawEmotion) {
     return "high";
   }
 
-  // everything else = neutral / mixed
   return "okay";
 }
 
@@ -231,7 +144,9 @@ function buildWeekFromEvents(events, weekOffset, fallbackWeek) {
     dayEnd.setDate(dayStart.getDate() + 1);
 
     const dayEvents = events.filter((e) => {
+      if (!e.ts) return false;
       const t = new Date(e.ts);
+      if (Number.isNaN(t.getTime())) return false;
       return t >= dayStart && t < dayEnd;
     });
 
@@ -295,40 +210,32 @@ function buildWeekFromEvents(events, weekOffset, fallbackWeek) {
 export default function MoodDashboard({ onBack }) {
   const { user } = useAuth();
   const [selectedWeekId, setSelectedWeekId] = useState("this-week");
-
-  // NEW: keep moodEvents in state so we can reload from localStorage
   const [moodEvents, setMoodEvents] = useState([]);
 
-  // NEW: load / reload mood events whenever the dashboard mounts (and when user changes)
+  // Load mood events from localStorage whenever user changes
   useEffect(() => {
     if (!user) {
       setMoodEvents([]);
       return;
     }
+    if (typeof window === "undefined") return;
+
     try {
       const raw = window.localStorage.getItem(getMoodKey(user.uid));
       const parsed = raw ? JSON.parse(raw) : [];
       setMoodEvents(Array.isArray(parsed) ? parsed : []);
     } catch (err) {
-      console.error("Failed to read mood events", err);
+      console.error("Failed to read mood events from localStorage", err);
       setMoodEvents([]);
     }
   }, [user]);
 
-  // build "this week" + "last week" views, using real data if present
+  // Build "this week" + "last week" views
   const weeks = useMemo(() => {
     const [sampleThisWeek, sampleLastWeek] = SAMPLE_WEEKS;
 
-    const realThisWeek = buildWeekFromEvents(
-      moodEvents,
-      0,
-      sampleThisWeek
-    );
-    const realLastWeek = buildWeekFromEvents(
-      moodEvents,
-      -1,
-      sampleLastWeek
-    );
+    const realThisWeek = buildWeekFromEvents(moodEvents, 0, sampleThisWeek);
+    const realLastWeek = buildWeekFromEvents(moodEvents, -1, sampleLastWeek);
 
     return [realThisWeek, realLastWeek];
   }, [moodEvents]);
@@ -463,7 +370,9 @@ export default function MoodDashboard({ onBack }) {
               {moodLabel(summary.dominantMood)}
             </p>
             <p className="mt-1 text-[11px] text-slate-400">
-              Based on {summary.total} logged days with EMOTI.
+              {summary.total > 0
+                ? `Based on ${summary.total} logged days with EMOTI.`
+                : "No logged days yet for this week."}
             </p>
           </div>
         </div>
