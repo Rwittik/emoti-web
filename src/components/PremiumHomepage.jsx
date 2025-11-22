@@ -29,7 +29,8 @@ export default function PremiumHomepage({
   onOpenPremiumChat = () => {},
   onOpenMoodDashboard = () => {},
   onOpenEmotionImages = () => {},
-  onOpenEmotionPlaylist = () => {}, // 🔸 NEW: Emotion playlist opener
+  onOpenEmotionPlaylist = () => {}, // 🔸 Emotion playlist opener
+  onOpenJournal = () => {}, // 🔸 NEW: Emotional journal opener
   user,
 }) {
   const firstName =
@@ -122,7 +123,7 @@ export default function PremiumHomepage({
       </section>
 
       {/* -------- PREMIUM QUICK ACTIONS -------- */}
-      <section className="max-w-6xl mx-auto px-5 pt-10 grid md:grid-cols-4 gap-4">
+      <section className="max-w-6xl mx-auto px-5 pt-10 grid md:grid-cols-5 gap-4">
         {/* Premium Chat */}
         <button
           onClick={onOpenPremiumChat}
@@ -199,6 +200,25 @@ export default function PremiumHomepage({
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
             Mood-based music in your language to wind down after chats.
+          </p>
+        </div>
+
+        {/* Emotional Journal – NEW */}
+        <div
+          onClick={onOpenJournal}
+          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-pink-300/60 hover:bg-slate-900/90 transition-all duration-300"
+        >
+          <p className="font-semibold text-pink-200 text-sm flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-pink-400/15 text-[11px]">
+              📔
+            </span>
+            Emotional journal
+            <span className="opacity-0 group-hover:opacity-100 transition-all">
+              →
+            </span>
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Write freely and let EMOTI reflect your feelings back to you.
           </p>
         </div>
       </section>
