@@ -85,7 +85,7 @@ export default function PremiumHomepage({
             </div>
 
             {/* tiny “at a glance” stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs w-full lg:w-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div className="rounded-2xl bg-slate-950/70 border border-amber-300/30 px-3 py-3 shadow-md shadow-amber-500/20">
                 <p className="text-[10px] text-amber-200/80 uppercase tracking-[0.16em] mb-1">
                   This week
@@ -109,7 +109,9 @@ export default function PremiumHomepage({
                 <p className="text-[10px] text-emerald-300/90 uppercase tracking-[0.16em] mb-1">
                   Night streak
                 </p>
-                <p className="text-lg font-semibold text-emerald-200">3 nights</p>
+                <p className="text-lg font-semibold text-emerald-200">
+                  3 nights
+                </p>
                 <p className="text-[11px] text-slate-400">
                   Consistency helps EMOTI learn your patterns.
                 </p>
@@ -120,7 +122,7 @@ export default function PremiumHomepage({
       </section>
 
       {/* -------- PREMIUM QUICK ACTIONS -------- */}
-      <section className="max-w-6xl mx-auto px-5 pt-10 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <section className="max-w-6xl mx-auto px-5 pt-10 grid md:grid-cols-4 gap-4">
         {/* Premium Chat */}
         <button
           onClick={onOpenPremiumChat}
@@ -205,19 +207,21 @@ export default function PremiumHomepage({
       <section className="max-w-6xl mx-auto px-5 py-10 grid lg:grid-cols-3 gap-6">
         {/* This week's mood trend preview */}
         <div className="lg:col-span-2 rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl shadow-black/40">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold">This week&apos;s mood trend</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+            <h3 className="text-lg font-semibold">
+              This week&apos;s mood trend
+            </h3>
             <span className="text-[11px] px-2 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
               Preview · tap mood dashboard for full view
             </span>
           </div>
-          <p className="text-sm text-slate-400 mb-3">
+          <p className="text-sm text-slate-400 mb-4">
             EMOTI tracks your emotional patterns to help you understand yourself
             better over time.
           </p>
 
-          <div className="h-36 md:h-40 lg:h-40 rounded-xl bg-slate-900/80 border border-slate-700 px-4 py-3 flex flex-col">
-            <div className="flex items-center justify-between text-[10px] text-slate-500 mb-2">
+          <div className="h-44 rounded-xl bg-slate-900/80 border border-slate-700 px-4 py-3 flex flex-col">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[10px] text-slate-500 mb-2">
               <span>Heavier days</span>
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1">
@@ -308,7 +312,7 @@ export default function PremiumHomepage({
             onClick={onOpenEmotionPlaylist}
             className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-emerald-300/40 p-4 shadow-lg shadow-emerald-500/25 cursor-pointer hover:border-emerald-200 hover:shadow-emerald-400/30 transition-all duration-300"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-emerald-300/80">
                   Emotion playlist
