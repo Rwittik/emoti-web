@@ -23,7 +23,6 @@ function getInitialMessages() {
 }
 
 export default function Chat() {
-  // ⬇️ we read isPremium so we can lock voice
   const { user, isPremium } = useAuth();
 
   const [messages, setMessages] = useState(getInitialMessages);
@@ -38,7 +37,7 @@ export default function Chat() {
 
   const boxRef = useRef(null);
 
-  const canUseVoice = !!user && isPremium; // ✅ only premium & logged in
+  const canUseVoice = !!user && isPremium; // only premium & logged in
 
   // Auto scroll chat
   useEffect(() => {
@@ -47,11 +46,8 @@ export default function Chat() {
     }
   }, [messages]);
 
-  // --------------------------------
   // Load messages per user (localStorage)
-  // --------------------------------
   useEffect(() => {
-    // Logged out → clear chat
     if (!user) {
       setMessages(getInitialMessages());
       return;
@@ -68,7 +64,6 @@ export default function Chat() {
 
       const parsed = JSON.parse(stored);
 
-      // basic validation
       if (Array.isArray(parsed) && parsed.length > 0) {
         setMessages(parsed);
       } else {
@@ -80,9 +75,7 @@ export default function Chat() {
     }
   }, [user]);
 
-  // --------------------------------
   // Save messages whenever they change (only when logged in)
-  // --------------------------------
   useEffect(() => {
     if (!user) return;
     const key = `emoti_chat_${user.uid}`;
@@ -93,9 +86,7 @@ export default function Chat() {
     }
   }, [messages, user]);
 
-  // -----------------------------
   // TEXT CHAT SEND
-  // -----------------------------
   async function sendMessage() {
     if (!input.trim() || loading) return;
 
@@ -174,11 +165,9 @@ export default function Chat() {
     }
   }
 
-  // -----------------------------
   // VOICE RECORDING START (premium only)
-  // -----------------------------
   const startRecording = async () => {
-    if (!canUseVoice || recording) return; // safety
+    if (!canUseVoice || recording) return;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -249,9 +238,7 @@ export default function Chat() {
     }
   };
 
-  // -----------------------------
   // VOICE RECORDING STOP
-  // -----------------------------
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
@@ -259,13 +246,12 @@ export default function Chat() {
     setRecording(false);
   };
 
-  // -----------------------------
   // UI RENDER
-  // -----------------------------
   return (
     <div className="w-full max-w-2xl bg-slate-900/70 backdrop-blur rounded-2xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
       {/* HEADER */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/90">
+      {/* desktop: same row layout as before; mobile: stacked with small gap */}
+      <header className="flex flex-col gap-2 sm:flex-row sm:gap-0 sm:items-center sm:justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/90">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#38bdf8] flex items-center justify-center text-white font-bold text-lg">
@@ -279,7 +265,6 @@ export default function Chat() {
             </div>
           </div>
 
-          {/* Status line for guest / free / premium */}
           {!user && (
             <p className="text-[10px] text-amber-300 mt-0.5">
               You&apos;re in guest mode. Chats are not saved and will reset if
@@ -303,7 +288,8 @@ export default function Chat() {
         </div>
 
         {/* LANGUAGE + PERSONALITY */}
-        <div className="flex items-center gap-2">
+        {/* desktop: same row with gap; mobile: allowed to wrap if needed */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:justify-end">
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
@@ -333,9 +319,10 @@ export default function Chat() {
       </header>
 
       {/* CHAT MESSAGES */}
+      {/* p-4 on ≥sm so desktop looks like original; smaller padding only on tiny screens */}
       <main
         ref={boxRef}
-        className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/70"
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-slate-950/70 min-h-[260px] sm:min-h-[280px] md:min-h-[320px]"
       >
         {messages.map((msg) => (
           <div
@@ -351,7 +338,6 @@ export default function Chat() {
                   : "bg-slate-800 text-left"
               }`}
             >
-              {/* EMOTI label + emotion */}
               {msg.from === "emoti" && (
                 <div className="text-[10px] uppercase tracking-wide text-sky-300 mb-1">
                   EMOTI
@@ -367,7 +353,6 @@ export default function Chat() {
           </div>
         ))}
 
-        {/* Typing indicator */}
         {loading && (
           <div className="flex justify-start mt-1">
             <div className="bg-slate-800 px-3 py-2 rounded-xl">
@@ -382,8 +367,9 @@ export default function Chat() {
       </main>
 
       {/* INPUT + VOICE */}
+      {/* desktop: row like before; mobile: stacked with full-width buttons */}
       <footer className="border-t border-slate-800 bg-slate-900/90 px-3 py-2">
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -396,16 +382,15 @@ export default function Chat() {
           <button
             onClick={sendMessage}
             disabled={loading}
-            className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white px-4 py-2 rounded text-sm"
+            className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white px-4 py-2 rounded text-sm w-full sm:w-auto"
           >
             {loading ? "…" : "Send"}
           </button>
 
-          {/* 🔒 Voice button: premium only */}
           {canUseVoice ? (
             <button
               onClick={recording ? stopRecording : startRecording}
-              className={`flex items-center gap-1 px-4 py-2 rounded text-sm text-white ${
+              className={`flex items-center gap-1 px-4 py-2 rounded text-sm text-white w-full sm:w-auto ${
                 recording ? "bg-red-600" : "bg-purple-600"
               }`}
             >
@@ -418,7 +403,7 @@ export default function Chat() {
             <button
               type="button"
               disabled
-              className="flex items-center gap-1 px-4 py-2 rounded text-sm border border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
+              className="flex items-center gap-1 px-4 py-2 rounded text-sm border border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed w-full sm:w-auto"
               title="Voice notes are available in EMOTI Premium"
             >
               <span role="img" aria-label="lock">
