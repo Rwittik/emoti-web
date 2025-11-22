@@ -1,17 +1,5 @@
 // src/components/Journal.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { db } from "../firebase";
-import {
-  collection,
-  addDoc,
-  query,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  updateDoc,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
 import { useAuth } from "../hooks/useAuth";
 
 const MOOD_OPTIONS = [
@@ -22,7 +10,7 @@ const MOOD_OPTIONS = [
 ];
 
 function basicSentiment(text) {
-  const t = text.toLowerCase();
+  const t = (text || "").toLowerCase();
   const negativeWords = [
     "sad",
     "anxious",
@@ -54,8 +42,36 @@ function basicSentiment(text) {
   return "okay";
 }
 
+// Get a readable date for both local (number) and old Firestore timestamps
+function formatCreatedAt(createdAt) {
+  try {
+    if (!createdAt) return "";
+    if (typeof createdAt === "number") {
+      return new Date(createdAt).toLocaleString([], {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    if (createdAt.toDate) {
+      // Firestore Timestamp
+      return createdAt.toDate().toLocaleString([], {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    return String(createdAt);
+  } catch {
+    return "";
+  }
+}
+
 export default function Journal() {
   const { user } = useAuth();
+
   const [entries, setEntries] = useState([]);
   const [text, setText] = useState("");
   const [moodTag, setMoodTag] = useState("okay");
@@ -69,91 +85,84 @@ export default function Journal() {
   const [summary, setSummary] = useState("");
   const [summarizing, setSummarizing] = useState(false);
 
-  const getCacheKey = (uid) => `journal_${uid}`;
+  const storageKey = user ? `emoti_journal_${user.uid}` : null;
 
   // ---------------------------
-  // Load entries from Firestore + localStorage
+  // Load entries from localStorage per user
   // ---------------------------
   useEffect(() => {
-    // If user logs out, clear local state
-    if (!user) {
+    if (!user || !storageKey) {
       setEntries([]);
-      setText("");
-      setEditingId(null);
-      setSummary("");
       return;
     }
 
-    // 1) Hydrate from localStorage immediately (for fast load after refresh)
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem(getCacheKey(user.uid));
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) {
-            setEntries(parsed);
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to read journal cache:", err);
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) {
+        setEntries([]);
+        return;
       }
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setEntries(parsed);
+      } else {
+        setEntries([]);
+      }
+    } catch (err) {
+      console.error("Failed to load journal from localStorage:", err);
+      setEntries([]);
     }
-
-    // 2) Live Firestore sync
-    const q = query(
-      collection(db, "users", user.uid, "journalEntries"),
-      orderBy("createdAt", "desc")
-    );
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setEntries(list);
-
-        // Update localStorage cache for this user
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem(getCacheKey(user.uid), JSON.stringify(list));
-          } catch (err) {
-            console.warn("Failed to write journal cache:", err);
-          }
-        }
-      },
-      (error) => {
-        console.error("Journal snapshot error:", error);
-      }
-    );
-
-    return () => unsub();
-  }, [user]);
+  }, [user, storageKey]);
 
   // ---------------------------
-  // Add / Update entry
+  // Persist entries to localStorage whenever they change
   // ---------------------------
-  const handleSave = async () => {
+  useEffect(() => {
+    if (!user || !storageKey) return;
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(entries));
+    } catch (err) {
+      console.error("Failed to save journal to localStorage:", err);
+    }
+  }, [entries, user, storageKey]);
+
+  // ---------------------------
+  // Add / Update entry (local only)
+  // ---------------------------
+  const handleSave = () => {
     if (!user || !text.trim()) return;
     setSaving(true);
 
     try {
       const sentiment = basicSentiment(text);
+      const now = Date.now();
 
       if (editingId) {
-        const ref = doc(db, "users", user.uid, "journalEntries", editingId);
-        await updateDoc(ref, {
-          text: text.trim(),
-          mood: moodTag,
-          sentiment,
-          updatedAt: serverTimestamp(),
-        });
+        // update existing entry in memory
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.id === editingId
+              ? {
+                  ...e,
+                  text: text.trim(),
+                  mood: moodTag,
+                  sentiment,
+                  updatedAt: now,
+                }
+              : e
+          )
+        );
       } else {
-        await addDoc(collection(db, "users", user.uid, "journalEntries"), {
+        // add new entry
+        const newEntry = {
+          id: `${now}_${Math.random().toString(16).slice(2)}`,
           text: text.trim(),
           mood: moodTag,
           sentiment,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
+          createdAt: now,
+          updatedAt: now,
+        };
+        setEntries((prev) => [newEntry, ...prev]);
       }
 
       setText("");
@@ -161,9 +170,10 @@ export default function Journal() {
       setEditingId(null);
     } catch (err) {
       console.error("Failed to save journal entry:", err);
-      alert("Could not save your entry. Please try again.");
+      alert("Could not save your entry locally. Please try again.");
     } finally {
-      setSaving(false);
+      // small delay just so the “Saving…” state is visible
+      setTimeout(() => setSaving(false), 200);
     }
   };
 
@@ -182,21 +192,14 @@ export default function Journal() {
     setMoodTag("okay");
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     if (!user) return;
     const confirmDelete = window.confirm("Delete this journal entry?");
     if (!confirmDelete) return;
 
-    try {
-      const ref = doc(db, "users", user.uid, "journalEntries", id);
-      await deleteDoc(ref);
-      if (editingId === id) {
-        cancelEdit();
-      }
-      // localStorage is kept in sync automatically by onSnapshot
-    } catch (err) {
-      console.error("Failed to delete entry:", err);
-      alert("Could not delete this entry. Please try again.");
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    if (editingId === id) {
+      cancelEdit();
     }
   };
 
@@ -484,13 +487,7 @@ export default function Journal() {
             ) : (
               <div className="space-y-3">
                 {filteredEntries.map((e) => {
-                  const created =
-                    e.createdAt?.toDate?.().toLocaleString([], {
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }) || "";
+                  const created = formatCreatedAt(e.createdAt);
 
                   const moodEmoji =
                     e.mood === "low"
