@@ -23,8 +23,23 @@ const MOOD_OPTIONS = [
 
 function basicSentiment(text) {
   const t = text.toLowerCase();
-  const negativeWords = ["sad", "anxious", "overwhelmed", "lonely", "tired", "angry", "guilty"];
-  const positiveWords = ["grateful", "happy", "hopeful", "excited", "calm", "peaceful"];
+  const negativeWords = [
+    "sad",
+    "anxious",
+    "overwhelmed",
+    "lonely",
+    "tired",
+    "angry",
+    "guilty",
+  ];
+  const positiveWords = [
+    "grateful",
+    "happy",
+    "hopeful",
+    "excited",
+    "calm",
+    "peaceful",
+  ];
 
   let score = 0;
   negativeWords.forEach((w) => {
@@ -83,7 +98,6 @@ export default function Journal() {
       const sentiment = basicSentiment(text);
 
       if (editingId) {
-        // update existing entry
         const ref = doc(db, "users", user.uid, "journalEntries", editingId);
         await updateDoc(ref, {
           text: text.trim(),
@@ -92,7 +106,6 @@ export default function Journal() {
           updatedAt: serverTimestamp(),
         });
       } else {
-        // add new entry
         await addDoc(collection(db, "users", user.uid, "journalEntries"), {
           text: text.trim(),
           mood: moodTag,
@@ -130,8 +143,8 @@ export default function Journal() {
 
   const handleDelete = async (id) => {
     if (!user) return;
-    const confirm = window.confirm("Delete this journal entry?");
-    if (!confirm) return;
+    const confirmDelete = window.confirm("Delete this journal entry?");
+    if (!confirmDelete) return;
 
     try {
       const ref = doc(db, "users", user.uid, "journalEntries", id);
@@ -151,10 +164,12 @@ export default function Journal() {
   const filteredEntries = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return entries.filter((e) => {
-      const matchesMood = filterMood === "all" || e.mood === filterMood || e.sentiment === filterMood;
+      const matchesMood =
+        filterMood === "all" ||
+        e.mood === filterMood ||
+        e.sentiment === filterMood;
       const matchesSearch =
-        !q ||
-        (e.text && e.text.toLowerCase().includes(q));
+        !q || (e.text && e.text.toLowerCase().includes(q));
       return matchesMood && matchesSearch;
     });
   }, [entries, searchQuery, filterMood]);
@@ -169,7 +184,7 @@ export default function Journal() {
     setSummary("");
 
     try {
-      const latest = entries.slice(0, 25); // last 25 entries
+      const latest = entries.slice(0, 25);
       const joined = latest
         .map((e) => {
           const tag = e.mood || e.sentiment || "mood";
@@ -198,7 +213,7 @@ export default function Journal() {
           "I’m here with you. I couldn’t generate a summary right now, but your entries show a lot of courage."
       );
     } catch (err) {
-      console.error("Failed to summarize journal:", err);
+      console.error("Failed to summarise journal:", err);
       setSummary(
         "I had trouble summarising your journal just now. Please try again in a bit."
       );
@@ -216,26 +231,28 @@ export default function Journal() {
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto mt-6 space-y-6">
+    <div className="w-full max-w-6xl mx-auto mt-6 pb-4 space-y-6">
       {/* HEADER BAR */}
-      <div className="rounded-3xl border border-slate-800 bg-slate-950/80 px-4 py-4 md:px-6 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-lg shadow-black/40">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-amber-300/80 mb-1">
+      <div className="rounded-3xl border border-slate-800 bg-slate-950/80 px-4 py-4 md:px-6 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-lg shadow-black/40">
+        <div className="space-y-1">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-amber-300/80">
             EMOTI · Emotional journal
           </p>
-          <h2 className="text-lg md:text-xl font-semibold">
+          <h2 className="text-xl md:text-2xl font-semibold">
             A quiet place to empty your heart
           </h2>
-          <p className="text-xs md:text-sm text-slate-400 max-w-xl mt-1">
+          <p className="text-xs md:text-sm text-slate-400 max-w-xl">
             Capture small reflections from your day. EMOTI softly tags the mood
             and can summarise patterns over time. Entries stay private to you.
           </p>
         </div>
 
-        <div className="rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-3 text-[11px] text-slate-300 flex flex-col gap-1 min-w-[180px]">
+        <div className="rounded-2xl bg-slate-900/90 border border-slate-700 px-4 py-3 text-[11px] text-slate-300 flex flex-col gap-2 min-w-[190px] max-w-xs">
           <div className="flex items-center justify-between">
             <span className="text-slate-400">Entries</span>
-            <span className="font-semibold text-sky-300">{entries.length}</span>
+            <span className="font-semibold text-sky-300">
+              {entries.length}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-slate-400">Latest mood</span>
@@ -253,13 +270,13 @@ export default function Journal() {
       </div>
 
       {/* MAIN GRID – left: editor + summary, right: list */}
-      <div className="grid lg:grid-cols-3 gap-5 items-start">
+      <div className="grid lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1.75fr)] gap-5 items-start">
         {/* LEFT COLUMN */}
-        <div className="space-y-4 lg:col-span-1">
+        <div className="space-y-4">
           {/* Mood + editor card */}
-          <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4 md:p-5 shadow-xl shadow-black/40">
+          <div className="rounded-3xl border border-slate-800 bg-slate-950/85 p-4 md:p-5 shadow-xl shadow-black/40">
             <div className="flex flex-col gap-2 mb-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">
                   {editingId ? "Edit entry" : "New reflection"}
                 </h3>
@@ -280,11 +297,11 @@ export default function Journal() {
                       key={m.id}
                       type="button"
                       onClick={() => setMoodTag(m.id)}
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full border ${
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full border transition ${
                         active
-                          ? "border-amber-300 bg-amber-400/10 text-amber-100"
+                          ? "border-amber-300 bg-amber-400/10 text-amber-100 shadow-sm shadow-amber-500/40"
                           : "border-slate-700 bg-slate-900/80 text-slate-300 hover:border-slate-500"
-                      } transition text-[11px]`}
+                      }`}
                     >
                       <span>{m.emoji}</span>
                       <span>{m.label}</span>
@@ -295,14 +312,14 @@ export default function Journal() {
             </div>
 
             <textarea
-              className="w-full rounded-2xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-sky-400 min-h-[120px]"
+              className="w-full rounded-2xl bg-slate-950 border border-slate-700 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-sky-400 min-h-[140px]"
               rows={4}
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="What felt heavy or light today? You can write in any language mix..."
             />
 
-            <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2 text-[11px] text-slate-500">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span>Private to you · entries are tied to your account.</span>
@@ -335,7 +352,7 @@ export default function Journal() {
           </div>
 
           {/* AI summary card */}
-          <div className="rounded-3xl border border-violet-400/40 bg-slate-950/90 p-4 md:p-5 shadow-lg shadow-violet-500/25">
+          <div className="rounded-3xl border border-violet-400/40 bg-slate-950/95 p-4 md:p-5 shadow-lg shadow-violet-500/25">
             <div className="flex items-center justify-between gap-2 mb-2">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.2em] text-violet-300/80">
@@ -358,7 +375,7 @@ export default function Journal() {
               EMOTI reads a slice of your recent entries and reflects back the
               main feelings and a tiny suggestion.
             </p>
-            <div className="text-xs text-slate-200 bg-slate-950/80 border border-slate-800 rounded-2xl px-3 py-3 min-h-[72px] whitespace-pre-wrap">
+            <div className="text-xs text-slate-200 bg-slate-950/80 border border-slate-800 rounded-2xl px-3 py-3 min-h-[88px] whitespace-pre-wrap">
               {summary
                 ? summary
                 : "No summary yet. Save a few entries and tap “Summarise last entries”. 💙"}
@@ -367,11 +384,11 @@ export default function Journal() {
         </div>
 
         {/* RIGHT COLUMN – list + search/filter */}
-        <div className="lg:col-span-2 space-y-3">
+        <div className="space-y-3">
           {/* Search & filter bar */}
           <div className="rounded-3xl border border-slate-800 bg-slate-950/80 px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between text-[11px]">
             <div className="flex-1 flex items-center gap-2">
-              <span className="text-slate-500">Search entries</span>
+              <span className="text-slate-500 shrink-0">Search entries</span>
               <input
                 type="text"
                 value={searchQuery}
@@ -380,7 +397,7 @@ export default function Journal() {
                 placeholder="keywords, emotions, people, etc."
               />
             </div>
-            <div className="flex flex-wrap gap-1 md:gap-2 mt-1 md:mt-0">
+            <div className="flex flex-wrap gap-1.5 md:gap-2 mt-1 md:mt-0">
               <button
                 type="button"
                 onClick={() => setFilterMood("all")}
@@ -414,12 +431,14 @@ export default function Journal() {
           </div>
 
           {/* Entries list */}
-          <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4 md:p-5 max-h-[520px] overflow-y-auto shadow-xl shadow-black/40">
+          <div className="rounded-3xl border border-slate-800 bg-slate-950/85 p-4 md:p-5 max-h-[520px] min-h-[220px] overflow-y-auto shadow-xl shadow-black/40">
             {filteredEntries.length === 0 ? (
-              <p className="text-xs text-slate-500">
-                No entries yet with this filter. Try changing the mood filter or
-                writing your first reflection.
-              </p>
+              <div className="w-full h-full flex items-center justify-center">
+                <p className="text-xs text-slate-500 text-center max-w-sm">
+                  No entries yet with this filter. Try changing the mood filter
+                  or writing your first reflection.
+                </p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {filteredEntries.map((e) => {
@@ -446,7 +465,7 @@ export default function Journal() {
                       className="group border border-slate-800 rounded-2xl px-3 py-3 bg-slate-900/80 hover:border-sky-400/60 transition"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                        <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-2">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-950/80 border border-slate-700">
                             <span>{moodEmoji}</span>
                             <span className="capitalize">
@@ -474,7 +493,7 @@ export default function Journal() {
                         </div>
                       </div>
 
-                      <p className="mt-2 text-xs text-slate-200 whitespace-pre-wrap">
+                      <p className="mt-2 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">
                         {e.text}
                       </p>
                     </div>
