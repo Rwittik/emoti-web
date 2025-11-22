@@ -1,6 +1,7 @@
 // src/App.jsx
-import Journal from "./components/Journal"; // ✅ ADD THIS
-import EmotionPlaylist from "./components/EmotionPlaylist"; // ✅ NEW
+import EmotionImages from "./components/EmotionImages"; // ✅ AI emotion images
+import Journal from "./components/Journal"; // ✅ Emotional journal
+import EmotionPlaylist from "./components/EmotionPlaylist"; // ✅ Emotion playlist
 import MoodDashboard from "./components/MoodDashboard";
 import PremiumChat from "./components/PremiumChat";
 import React, { useRef, useState } from "react";
@@ -8,7 +9,6 @@ import Chat from "./components/chat";
 import PremiumButton from "./components/PremiumButton";
 import { useAuth } from "./hooks/useAuth";
 import PremiumHomepage from "./components/PremiumHomepage";
-import EmotionImages from "./components/EmotionImages"; // ✅ NEW
 
 export default function App() {
   const chatRef = useRef(null);
@@ -51,14 +51,14 @@ export default function App() {
     }
   };
 
-  // ✅ NEW: open Emotion Playlist
+  // ✅ open Emotion Playlist
   const openEmotionPlaylist = () => {
     if (user && isPremium) {
       setPremiumView("music");
     }
   };
 
-  // ✅ NEW: open Emotional Journal
+  // ✅ open Emotional Journal
   const openJournal = () => {
     if (user && isPremium) {
       setPremiumView("journal");
@@ -179,7 +179,7 @@ export default function App() {
       {user && isPremium && premiumView === "chat" ? (
         <main className="bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[calc(100vh-56px)]">
           <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-            {/* 🔹 mobile stack, desktop same row */}
+            {/* mobile stack, desktop row */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
               <div>
                 <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
@@ -250,10 +250,10 @@ export default function App() {
         // Mood dashboard full page
         <MoodDashboard onBack={goToPremiumDashboard} />
       ) : user && isPremium && premiumView === "images" ? (
-        // ✅ NEW: AI Emotion Images full page
+        // AI Emotion Images full page
         <EmotionImages onBack={goToPremiumDashboard} />
       ) : user && isPremium && premiumView === "journal" ? (
-        // ✅ NEW: Emotional Journal full page
+        // Emotional Journal full page
         <main className="bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[calc(100vh-56px)]">
           <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -274,11 +274,12 @@ export default function App() {
               </button>
             </div>
 
-            {/* Existing Journal component */}
+            {/* Journal component */}
             <Journal />
           </section>
         </main>
       ) : user && isPremium && premiumView === "music" ? (
+        // Emotion playlist full page
         <EmotionPlaylist onBack={goToPremiumDashboard} />
       ) : (
         <>
@@ -289,7 +290,8 @@ export default function App() {
               onOpenPremiumChat={openPremiumChat}
               onOpenMoodDashboard={openMoodDashboard}
               onOpenEmotionImages={openEmotionImages}
-              onOpenEmotionPlaylist={openEmotionPlaylist} // ✅ NEW
+              onOpenEmotionPlaylist={openEmotionPlaylist}
+              onOpenJournal={openJournal}
             />
           )}
 
@@ -617,9 +619,9 @@ export default function App() {
                       Premium chatroom
                     </div>
                     <p className="text-slate-300">
-                      Use the{" "}
-                      <span className="font-semibold">Premium chat</span> button
-                      in the top bar to enter your dedicated, priority space.
+                      Use the <span className="font-semibold">Premium chat</span>{" "}
+                      button in the top bar to enter your dedicated, priority
+                      space.
                     </p>
                   </div>
 
