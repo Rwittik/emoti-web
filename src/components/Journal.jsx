@@ -1,5 +1,5 @@
 // src/components/Journal.jsx
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
 import {
   collection,
@@ -18,24 +18,29 @@ export default function Journal() {
 
   useEffect(() => {
     if (!user) return;
+
     const q = query(
       collection(db, "users", user.uid, "journalEntries"),
       orderBy("createdAt", "desc")
     );
+
     const unsub = onSnapshot(q, (snap) => {
       setEntries(
         snap.docs.map((d) => ({ id: d.id, ...d.data() }))
       );
     });
+
     return () => unsub();
   }, [user]);
 
   const addEntry = async () => {
     if (!text.trim() || !user) return;
+
     await addDoc(collection(db, "users", user.uid, "journalEntries"), {
       text: text.trim(),
       createdAt: serverTimestamp(),
     });
+
     setText("");
   };
 
@@ -50,6 +55,7 @@ export default function Journal() {
   return (
     <div className="w-full max-w-3xl mx-auto mt-6">
       <h3 className="text-sm font-semibold mb-2">Your Journal</h3>
+
       <textarea
         className="w-full rounded-lg bg-slate-900 border border-slate-700 p-2 text-sm"
         rows={3}
@@ -57,9 +63,10 @@ export default function Journal() {
         onChange={(e) => setText(e.target.value)}
         placeholder="Write a reflection about today..."
       />
+
       <button
         onClick={addEntry}
-        className="mt-2 px-3 py-1.5 text-xs rounded-full bg-sky-500 text-slate-950"
+        className="mt-2 px-3 py-1.5 text-xs rounded-full bg-sky-500 text-slate-950 hover:bg-sky-400 transition"
       >
         Save entry
       </button>
