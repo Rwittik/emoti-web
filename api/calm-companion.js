@@ -1,5 +1,4 @@
 // /api/calm-companion.js
-// Uses HTTP POST to /v1/chat/completions + /v1/audio/speech (no SDK required)
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -18,7 +17,9 @@ export default async function handler(req, res) {
   try {
     const { mode = "anxiety", length = "short" } = req.body || {};
 
-    // --- build a style + length hint ---
+    // -----------------------------
+    // 1) Build script prompt
+    // -----------------------------
     let modeDescription;
     switch (mode) {
       case "grounding":
@@ -70,82 +71,82 @@ Write it as one continuous script in the second person ("you"), with line breaks
 Do NOT mention that you are an AI.
     `.trim();
 
-    // ---------- 1) Generate text script via /v1/chat/completions ----------
-    const chatRes = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
+    // -----------------------------
+    // 2) Generate the text script
+    // -----------------------------
+    const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: "Create the calm companion script now." },
+        ],
+        temperature: 0.8,
+        max_tokens: 900,
+      }),
+    });
+
+    if (!chatRes.ok) {
+      const errText = await chatRes.text();
+      console.error("Calm Companion chat error:", chatRes.status, errText);
+      return res.status(500).json({
+        error: "I couldn’t build a calm script right now. Please try again.",
+      });
+    }
+
+    const chatData = await chatRes.json();
+    const script =
+      chatData?.choices?.[0]?.message?.content?.trim() ||
+      "Take a slow breath in… and a gentle breath out.";
+
+    // -----------------------------
+    // 3) Generate TTS audio via /v1/audio/speech
+    // -----------------------------
+    let audio_base64 = null;
+
+    try {
+      const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-4.1-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: "Create the calm companion script now." },
-          ],
-          temperature: 0.8,
-          max_tokens: 900,
+          model: "tts-1",          // stable TTS model
+          input: script,
+          voice: "alloy",
+          response_format: "mp3",  // we’ll return mp3 data
         }),
-      }
-    );
-
-    if (!chatRes.ok) {
-      const errText = await chatRes.text();
-      console.error("Calm Companion chat error:", errText);
-      return res
-        .status(500)
-        .json({ error: "Could not generate calm script right now." });
-    }
-
-    const chatJson = await chatRes.json();
-    const script =
-      chatJson?.choices?.[0]?.message?.content?.trim() ||
-      "Take a slow breath in… and a gentle breath out.";
-
-    // ---------- 2) Generate TTS audio via /v1/audio/speech ----------
-    let audio_base64 = null;
-
-    try {
-      const ttsRes = await fetch(
-        "https://api.openai.com/v1/audio/speech",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini-tts", // TTS model
-            voice: "alloy",          // voice name
-            input: script,           // the script we just generated
-            format: "mp3",           // mp3 output
-          }),
-        }
-      );
+      });
 
       if (!ttsRes.ok) {
         const errText = await ttsRes.text();
-        console.error("Calm Companion TTS HTTP error:", errText);
+        console.error("Calm Companion TTS HTTP error:", ttsRes.status, errText);
       } else {
-        // Node/Next: convert binary to base64
         const arrayBuffer = await ttsRes.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        audio_base64 = buffer.toString("base64");
+        audio_base64 = Buffer.from(arrayBuffer).toString("base64");
       }
     } catch (ttsErr) {
-      console.error("Calm Companion TTS fetch error:", ttsErr);
-      // we just skip audio – text will still be returned
+      console.error("Calm Companion TTS network error:", ttsErr);
+      // we still continue with text-only script
     }
 
-    // ---------- 3) Send response back to CalmCompanion.jsx ----------
+    // -----------------------------
+    // 4) Respond to frontend
+    // -----------------------------
     return res.status(200).json({
       text: script,
       audio_base64, // may be null if TTS failed
     });
   } catch (err) {
     console.error("Calm Companion API error:", err);
-    return res.status(500).json({ error: "Calm Companion internal error" });
+    return res.status(500).json({
+      error: "Calm Companion internal error",
+    });
   }
 }
