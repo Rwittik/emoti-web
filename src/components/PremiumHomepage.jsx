@@ -29,8 +29,9 @@ export default function PremiumHomepage({
   onOpenPremiumChat = () => {},
   onOpenMoodDashboard = () => {},
   onOpenEmotionImages = () => {},
-  onOpenEmotionPlaylist = () => {}, // 🔸 Emotion playlist opener
-  onOpenJournal={openJournal}, // 🔸 NEW: Emotional journal opener
+  onOpenEmotionPlaylist = () => {},    // 🔸 Emotion playlist opener
+  onOpenJournal = () => {},            // 🔸 Emotional journal opener
+  onOpenCalmCompanion = () => {},      // 🔸 Calm Companion opener
   user,
 }) {
   const firstName =
@@ -123,7 +124,7 @@ export default function PremiumHomepage({
       </section>
 
       {/* -------- PREMIUM QUICK ACTIONS -------- */}
-      <section className="max-w-6xl mx-auto px-5 pt-10 grid md:grid-cols-5 gap-4">
+      <section className="max-w-6xl mx-auto px-5 pt-10 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Premium Chat */}
         <button
           onClick={onOpenPremiumChat}
@@ -203,7 +204,7 @@ export default function PremiumHomepage({
           </p>
         </div>
 
-        {/* Emotional Journal – NEW */}
+        {/* Emotional Journal */}
         <div
           onClick={onOpenJournal}
           className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-pink-300/60 hover:bg-slate-900/90 transition-all duration-300"
@@ -219,6 +220,25 @@ export default function PremiumHomepage({
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
             Write freely and let EMOTI reflect your feelings back to you.
+          </p>
+        </div>
+
+        {/* Calm Companion */}
+        <div
+          onClick={onOpenCalmCompanion}
+          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-emerald-400/60 px-4 py-4 text-left hover:border-emerald-300 hover:bg-slate-900/95 transition-all duration-300"
+        >
+          <p className="font-semibold text-emerald-200 text-sm flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/20 text-[11px]">
+              🌙
+            </span>
+            Calm Companion
+            <span className="opacity-0 group-hover:opacity-100 transition-all">
+              →
+            </span>
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Guided breathing, grounding, affirmations, and soft sleep stories.
           </p>
         </div>
       </section>
@@ -287,7 +307,7 @@ export default function PremiumHomepage({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: AI images + mini playlist teaser */}
+        {/* RIGHT COLUMN: AI images + playlist + Calm Companion preview */}
         <div className="space-y-4">
           {/* AI Reflection Images */}
           <div
@@ -367,6 +387,45 @@ export default function PremiumHomepage({
             <p className="text-[10px] text-slate-500">
               Tap to pick your language & platform (Spotify / YouTube, etc.).
             </p>
+          </div>
+
+          {/* Calm Companion preview */}
+          <div
+            onClick={onOpenCalmCompanion}
+            className="rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-emerald-400/60 p-4 shadow-lg shadow-emerald-500/30 cursor-pointer hover:border-emerald-300 hover:bg-slate-900/95 transition-all duration-300"
+          >
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-300/80">
+                  Calm Companion
+                </p>
+                <h4 className="text-sm font-semibold text-slate-50">
+                  Soft voice support for heavy nights
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Guided breathing, gentle affirmations, grounding exercises,
+                  and cozy sleep stories in a slow, soothing tone.
+                </p>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-emerald-400 flex items-center justify-center text-slate-950 text-lg shadow-md shadow-emerald-500/50">
+                🌙
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1 text-[10px] text-slate-200">
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Anxiety reset
+              </span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Grounding exercise
+              </span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Affirmations
+              </span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
+                Sleep story
+              </span>
+            </div>
           </div>
         </div>
       </section>

@@ -1,6 +1,7 @@
 // src/App.jsx
-import EmotionImages from "./components/EmotionImages"; // ✅ AI emotion images
-import Journal from "./components/Journal"; // ✅ Emotional journal
+import CalmCompanion from "./components/CalmCompanion"; // ✅ NEW
+import EmotionImages from "./components/EmotionImages"; //
+import Journal from "./components/Journal"; //
 import EmotionPlaylist from "./components/EmotionPlaylist"; // ✅ Emotion playlist
 import MoodDashboard from "./components/MoodDashboard";
 import PremiumChat from "./components/PremiumChat";
@@ -14,7 +15,7 @@ export default function App() {
   const chatRef = useRef(null);
   const { user, isPremium, logout, loginWithGoogle } = useAuth();
 
-  // "dashboard" | "chat" | "mood" | "images" | "music" | "journal"
+  // "dashboard" | "chat" | "mood" | "images" | "music" | "journal" | "calm"
   const [premiumView, setPremiumView] = useState("dashboard");
 
   const scrollToChat = () => {
@@ -62,6 +63,11 @@ export default function App() {
   const openJournal = () => {
     if (user && isPremium) {
       setPremiumView("journal");
+    }
+  };
+  const openCalmCompanion = () => {
+    if (user && isPremium) {
+      setPremiumView("calm");
     }
   };
 
@@ -281,6 +287,9 @@ export default function App() {
       ) : user && isPremium && premiumView === "music" ? (
         // Emotion playlist full page
         <EmotionPlaylist onBack={goToPremiumDashboard} />
+      ) : user && isPremium && premiumView === "calm" ? (
+        // ✅ NEW: Calm Companion full page
+        <CalmCompanion onBack={goToPremiumDashboard} />
       ) : (
         <>
           {/* PREMIUM HOMEPAGE (only for premium users) */}
@@ -292,6 +301,7 @@ export default function App() {
               onOpenEmotionImages={openEmotionImages}
               onOpenEmotionPlaylist={openEmotionPlaylist}
               onOpenJournal={openJournal}
+              onOpenCalmCompanion={openCalmCompanion} // ✅ NEW
             />
           )}
 
@@ -619,9 +629,9 @@ export default function App() {
                       Premium chatroom
                     </div>
                     <p className="text-slate-300">
-                      Use the <span className="font-semibold">Premium chat</span>{" "}
-                      button in the top bar to enter your dedicated, priority
-                      space.
+                      Use the{" "}
+                      <span className="font-semibold">Premium chat</span> button
+                      in the top bar to enter your dedicated, priority space.
                     </p>
                   </div>
 
