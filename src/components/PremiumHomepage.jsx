@@ -29,9 +29,9 @@ export default function PremiumHomepage({
   onOpenPremiumChat = () => {},
   onOpenMoodDashboard = () => {},
   onOpenEmotionImages = () => {},
-  onOpenEmotionPlaylist = () => {},    // 🔸 Emotion playlist opener
-  onOpenJournal = () => {},            // 🔸 Emotional journal opener
-  onOpenCalmCompanion = () => {},      // 🔸 Calm Companion opener
+  onOpenEmotionPlaylist = () => {},
+  onOpenJournal = () => {},
+  onOpenCalmCompanion = () => {},
   user,
 }) {
   const firstName =
@@ -46,7 +46,7 @@ export default function PremiumHomepage({
         {/* soft background glow */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.18),_transparent_55%),_radial-gradient(circle_at_bottom,_rgba(14,165,233,0.16),_transparent_60%)]" />
 
-        <div className="relative max-w-6xl mx-auto px-5 py-14">
+        <div className="relative max-w-6xl mx-auto px-5 py-12 md:py-14">
           <div className="inline-flex items-center gap-2 rounded-full bg-amber-400/10 border border-amber-400/40 px-3 py-1 text-[11px] text-amber-200 mb-4">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Premium Dashboard
@@ -87,7 +87,7 @@ export default function PremiumHomepage({
             </div>
 
             {/* tiny “at a glance” stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs w-full max-w-md">
               <div className="rounded-2xl bg-slate-950/70 border border-amber-300/30 px-3 py-3 shadow-md shadow-amber-500/20">
                 <p className="text-[10px] text-amber-200/80 uppercase tracking-[0.16em] mb-1">
                   This week
@@ -124,11 +124,11 @@ export default function PremiumHomepage({
       </section>
 
       {/* -------- PREMIUM QUICK ACTIONS -------- */}
-      <section className="max-w-6xl mx-auto px-5 pt-10 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <section className="max-w-6xl mx-auto px-5 pt-8 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Premium Chat */}
         <button
           onClick={onOpenPremiumChat}
-          className="group relative rounded-2xl bg-slate-950/80 border border-amber-300/40 px-4 py-4 text-left shadow-lg shadow-black/40 overflow-hidden"
+          className="group relative rounded-2xl bg-slate-950/90 border border-amber-300/50 px-4 py-4 text-left shadow-lg shadow-black/40 overflow-hidden"
         >
           <div className="absolute -inset-0.5 bg-gradient-to-br from-amber-400/30 via-amber-500/10 to-rose-500/10 opacity-0 group-hover:opacity-100 blur-xl transition" />
           <div className="relative">
@@ -226,7 +226,7 @@ export default function PremiumHomepage({
         {/* Calm Companion */}
         <div
           onClick={onOpenCalmCompanion}
-          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-emerald-400/60 px-4 py-4 text-left hover:border-emerald-300 hover:bg-slate-900/95 transition-all duration-300"
+          className="cursor-pointer group rounded-2xl bg-slate-900/90 border border-emerald-400/70 px-4 py-4 text-left hover:border-emerald-300 hover:bg-slate-900/95 transition-all duration-300"
         >
           <p className="font-semibold text-emerald-200 text-sm flex items-center gap-2">
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/20 text-[11px]">
@@ -243,67 +243,105 @@ export default function PremiumHomepage({
         </div>
       </section>
 
-      {/* -------- MOOD TREND + RIGHT COLUMN -------- */}
-      <section className="max-w-6xl mx-auto px-5 py-10 grid lg:grid-cols-3 gap-6 items-start">
-        {/* This week's mood trend preview */}
-        <div className="lg:col-span-2 rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl shadow-black/40">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-            <h3 className="text-lg font-semibold">
-              This week&apos;s mood trend
-            </h3>
-            <span className="text-[11px] px-2 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
-              Preview · tap mood dashboard for full view
-            </span>
-          </div>
-          <p className="text-sm text-slate-400 mb-4">
-            EMOTI tracks your emotional patterns to help you understand yourself
-            better over time.
-          </p>
-
-          <div className="h-44 rounded-xl bg-slate-900/80 border border-slate-700 px-4 py-3 flex flex-col">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[10px] text-slate-500 mb-2">
-              <span>Heavier days</span>
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-400" /> low
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-sky-400" /> okay
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" /> high
-                </span>
-              </div>
-              <span>Lighter days</span>
+      {/* -------- INSIGHTS GRID (BALANCED TWO COLUMNS) -------- */}
+      <section className="max-w-6xl mx-auto px-5 py-10 grid lg:grid-cols-2 gap-6 items-start">
+        {/* LEFT COLUMN: Mood trend + recap card */}
+        <div className="space-y-4">
+          {/* This week's mood trend preview */}
+          <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl shadow-black/40">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+              <h3 className="text-lg font-semibold">
+                This week&apos;s mood trend
+              </h3>
+              <span className="text-[11px] px-2 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
+                Preview · tap mood dashboard for full view
+              </span>
             </div>
-
-            {/* mini bar graph similar to MoodDashboard */}
-            <div className="flex-1 flex items-end gap-3">
-              {MOOD_PREVIEW_DAYS.map((day) => {
-                const height = (day.score / 5) * 100;
-                return (
-                  <div
-                    key={day.id}
-                    className="flex-1 flex flex-col items-center gap-1"
-                  >
-                    <div
-                      className={`w-full max-w-[18px] rounded-full ${moodColor(
-                        day.mood
-                      )} shadow-sm shadow-slate-900`}
-                      style={{ height: `${Math.max(height, 14)}%` }}
-                    />
-                    <span className="text-[10px] text-slate-400">
-                      {day.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <p className="mt-2 text-[10px] text-slate-500 text-center">
-              This is a soft preview of your week. Open the Mood Dashboard for
-              deeper insights, journaling prompts, and patterns over time.
+            <p className="text-sm text-slate-400 mb-4">
+              EMOTI tracks your emotional patterns to help you understand
+              yourself better over time.
             </p>
+
+            <div className="h-40 rounded-xl bg-slate-900/80 border border-slate-700 px-4 py-3 flex flex-col">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[10px] text-slate-500 mb-2">
+                <span>Heavier days</span>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-rose-400" /> low
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-sky-400" /> okay
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" /> high
+                  </span>
+                </div>
+                <span>Lighter days</span>
+              </div>
+
+              {/* mini bar graph similar to MoodDashboard */}
+              <div className="flex-1 flex items-end gap-3">
+                {MOOD_PREVIEW_DAYS.map((day) => {
+                  const height = (day.score / 5) * 100;
+                  return (
+                    <div
+                      key={day.id}
+                      className="flex-1 flex flex-col items-center gap-1"
+                    >
+                      <div
+                        className={`w-full max-w-[18px] rounded-full ${moodColor(
+                          day.mood
+                        )} shadow-sm shadow-slate-900`}
+                        style={{ height: `${Math.max(height, 18)}%` }}
+                      />
+                      <span className="text-[10px] text-slate-400">
+                        {day.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="mt-2 text-[10px] text-slate-500 text-center">
+                This is a soft preview of your week. Open the Mood Dashboard for
+                deeper insights, journaling prompts, and patterns over time.
+              </p>
+            </div>
+          </div>
+
+          {/* Compact recap / nudge card to fill left side height */}
+          <div className="rounded-2xl bg-slate-900/85 border border-slate-800 p-5 shadow-xl shadow-black/40">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-amber-300/80 mb-2">
+              Gentle recap
+            </p>
+            <p className="text-sm text-slate-200">
+              This week felt{" "}
+              <span className="font-semibold text-emerald-200">
+                a mix of okay and heavy
+              </span>
+              . You still showed up and shared how you feel — that matters more
+              than having “perfect” days.
+            </p>
+            <div className="mt-3 grid sm:grid-cols-3 gap-3 text-[11px]">
+              <div className="rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2">
+                <p className="text-slate-400 mb-1">Tiny win</p>
+                <p className="text-slate-100">
+                  You checked in even when your mood was low.
+                </p>
+              </div>
+              <div className="rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2">
+                <p className="text-slate-400 mb-1">Tonight&apos;s nudge</p>
+                <p className="text-slate-100">
+                  Try writing 2–3 sentences in your journal before sleep.
+                </p>
+              </div>
+              <div className="rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2">
+                <p className="text-slate-400 mb-1">Quick tool</p>
+                <p className="text-slate-100">
+                  Use Calm Companion for a short anxiety reset session.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -431,7 +469,7 @@ export default function PremiumHomepage({
       </section>
 
       {/* -------- PREMIUM FEATURES LIST -------- */}
-      <section className="max-w-6xl mx-auto px-5 py-10">
+      <section className="max-w-6xl mx-auto px-5 py-8 md:py-10">
         <h2 className="text-xl font-semibold mb-4">Your premium tools</h2>
 
         <div className="grid md:grid-cols-3 gap-6 text-sm">
