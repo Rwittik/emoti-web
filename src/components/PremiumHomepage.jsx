@@ -19,7 +19,7 @@ const MOOD_PREVIEW_DAYS = [
   { id: "mon", label: "Mon", mood: "low", score: 2 },
   { id: "tue", label: "Tue", mood: "okay", score: 3 },
   { id: "wed", label: "Wed", mood: "high", score: 4 },
-  { id: "thu", label: "Thu", mood: "low", score: 2 },
+  { id: "thu", label: "Thu", mood: 2, score: 2 },
   { id: "fri", label: "Fri", mood: "okay", score: 3 },
   { id: "sat", label: "Sat", mood: "high", score: 5 },
   { id: "sun", label: "Sun", mood: "okay", score: 3 },
@@ -40,16 +40,23 @@ export default function PremiumHomepage({
     "Friend";
 
   return (
-    <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 min-h-screen pb-20">
+    <div className="relative bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-50 min-h-screen pb-20">
+      {/* soft background orbs */}
+      <div className="pointer-events-none fixed inset-0 -z-10 opacity-60">
+        <div className="absolute -top-40 -left-10 h-72 w-72 rounded-full bg-sky-500/15 blur-3xl" />
+        <div className="absolute -bottom-40 right-0 h-80 w-80 rounded-full bg-amber-500/10 blur-3xl" />
+      </div>
+
       {/* -------- PREMIUM BANNER -------- */}
       <section className="relative border-b border-amber-400/20 overflow-hidden">
         {/* soft background glow */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.18),_transparent_55%),_radial-gradient(circle_at_bottom,_rgba(14,165,233,0.16),_transparent_60%)]" />
 
-        <div className="relative max-w-6xl mx-auto px-5 py-12 md:py-14">
-          <div className="inline-flex items-center gap-2 rounded-full bg-amber-400/10 border border-amber-400/40 px-3 py-1 text-[11px] text-amber-200 mb-4">
+        <div className="relative max-w-6xl mx-auto px-5 py-12 md:py-14 space-y-4">
+          {/* top pill */}
+          <div className="inline-flex items-center gap-2 rounded-full bg-slate-950/70 backdrop-blur border border-amber-400/40 px-3 py-1 text-[11px] text-amber-200 shadow-sm shadow-amber-500/30">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Premium Dashboard
+            Premium dashboard
             <span className="h-1 w-px bg-amber-400/40 mx-1" />
             <span className="text-[10px] text-amber-100/80">
               Private to you · Night-safe space
@@ -57,20 +64,24 @@ export default function PremiumHomepage({
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-            <div>
-              <h1 className="text-3xl md:text-5xl font-bold leading-tight tracking-tight">
+            <div className="space-y-3">
+              <h1 className="text-3xl md:text-5xl font-semibold leading-tight tracking-tight">
                 Welcome back,
-                <span className="text-amber-300"> {firstName}</span> ✨
+                <span className="text-amber-300"> {firstName}</span>
+                <span className="inline-block align-middle text-2xl md:text-3xl">
+                  {" "}
+                  ✨
+                </span>
               </h1>
 
-              <p className="mt-3 text-slate-300 max-w-xl text-sm md:text-base">
-                You’re a Premium EMOTI member — enjoy deeper emotional insights,
-                visual reflections, mood-based music, and priority AI responses
-                designed just for you.
+              <p className="text-slate-300 max-w-xl text-sm md:text-base">
+                Tonight your EMOTI space is already set up — deeper insights,
+                visual reflections, calm audio, and a private room where you can
+                drop everything you&apos;re carrying.
               </p>
 
               {/* Go to Premium Chat */}
-              <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
                 <button
                   onClick={onOpenPremiumChat}
                   className="px-6 py-3 rounded-full bg-amber-400/90 hover:bg-amber-300 text-slate-900 shadow-lg shadow-amber-500/40 font-semibold text-sm md:text-base transition"
@@ -79,7 +90,7 @@ export default function PremiumHomepage({
                 </button>
                 <button
                   onClick={onOpenEmotionPlaylist}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-300/60 text-amber-100 text-xs md:text-sm bg-slate-950/60 hover:bg-amber-400/10 transition"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-300/60 text-amber-100 text-xs md:text-sm bg-slate-950/80 backdrop-blur hover:bg-amber-400/10 transition"
                 >
                   🎧 Open emotion playlist
                 </button>
@@ -88,17 +99,17 @@ export default function PremiumHomepage({
 
             {/* tiny “at a glance” stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs w-full max-w-md">
-              <div className="rounded-2xl bg-slate-950/70 border border-amber-300/30 px-3 py-3 shadow-md shadow-amber-500/20">
+              <div className="rounded-2xl bg-slate-950/70 backdrop-blur border border-amber-300/30 px-3 py-3 shadow-md shadow-amber-500/20">
                 <p className="text-[10px] text-amber-200/80 uppercase tracking-[0.16em] mb-1">
                   This week
                 </p>
                 <p className="text-lg font-semibold">5 chats</p>
                 <p className="text-[11px] text-slate-400">
                   You’ve checked in on{" "}
-                  <span className="text-sky-300 font-medium">most days</span>.
+                  <span className="text-sky-300 font-medium">most nights</span>.
                 </p>
               </div>
-              <div className="rounded-2xl bg-slate-950/70 border border-sky-400/40 px-3 py-3">
+              <div className="rounded-2xl bg-slate-950/70 backdrop-blur border border-sky-400/40 px-3 py-3">
                 <p className="text-[10px] text-sky-300/90 uppercase tracking-[0.16em] mb-1">
                   Current mood
                 </p>
@@ -107,7 +118,7 @@ export default function PremiumHomepage({
                   Slightly heavy, but you&apos;re still moving.
                 </p>
               </div>
-              <div className="rounded-2xl bg-slate-950/70 border border-emerald-400/40 px-3 py-3">
+              <div className="rounded-2xl bg-slate-950/70 backdrop-blur border border-emerald-400/40 px-3 py-3">
                 <p className="text-[10px] text-emerald-300/90 uppercase tracking-[0.16em] mb-1">
                   Night streak
                 </p>
@@ -119,6 +130,26 @@ export default function PremiumHomepage({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Today at a glance strip */}
+          <div className="mt-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 backdrop-blur px-4 py-3 flex flex-wrap gap-3 items-center text-[11px] text-slate-300 shadow-lg shadow-black/30">
+            <span className="uppercase tracking-[0.2em] text-slate-500">
+              Today at a glance
+            </span>
+            <span className="h-1 w-1 rounded-full bg-emerald-400" />
+            <span className="px-2 py-1 rounded-full bg-slate-900/90 border border-slate-700">
+              Energy · <span className="text-emerald-300 font-medium">6 / 10</span>
+            </span>
+            <span className="px-2 py-1 rounded-full bg-slate-900/90 border border-slate-700">
+              Stress · <span className="text-amber-300 font-medium">7 / 10</span>
+            </span>
+            <span className="px-2 py-1 rounded-full bg-slate-900/90 border border-slate-700">
+              Sleep · <span className="text-sky-300 font-medium">5 / 10</span>
+            </span>
+            <span className="ml-auto text-[10px] text-slate-500">
+              These are soft, approximate check-ins — not diagnoses.
+            </span>
           </div>
         </div>
       </section>
@@ -150,7 +181,7 @@ export default function PremiumHomepage({
         {/* Mood Dashboard */}
         <div
           onClick={onOpenMoodDashboard}
-          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-sky-300/60 hover:bg-slate-900/90 transition-all duration-300"
+          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-sky-300/70 hover:bg-slate-900/95 transition-all duration-300"
         >
           <p className="font-semibold text-sky-200 text-sm flex items-center gap-2">
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-400/15 text-[11px]">
@@ -169,7 +200,7 @@ export default function PremiumHomepage({
         {/* AI Emotion Images */}
         <div
           onClick={onOpenEmotionImages}
-          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-violet-300/60 hover:bg-slate-900/90 transition-all duration-300"
+          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-violet-300/70 hover:bg-slate-900/95 transition-all duration-300"
         >
           <p className="font-semibold text-violet-200 text-sm flex items-center gap-2">
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-400/15 text-[11px]">
@@ -188,7 +219,7 @@ export default function PremiumHomepage({
         {/* Emotion Playlist – premium music space */}
         <div
           onClick={onOpenEmotionPlaylist}
-          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-emerald-300/60 hover:bg-slate-900/90 transition-all duration-300"
+          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-emerald-300/70 hover:bg-slate-900/95 transition-all duration-300"
         >
           <p className="font-semibold text-emerald-200 text-sm flex items-center gap-2">
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/15 text-[11px]">
@@ -207,13 +238,16 @@ export default function PremiumHomepage({
         {/* Emotional Journal */}
         <div
           onClick={onOpenJournal}
-          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-pink-300/60 hover:bg-slate-900/90 transition-all duration-300"
+          className="cursor-pointer group rounded-2xl bg-slate-900/80 border border-slate-700 px-4 py-4 text-left hover:border-pink-300/70 hover:bg-slate-900/95 transition-all duration-300"
         >
           <p className="font-semibold text-pink-200 text-sm flex items-center gap-2">
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-pink-400/15 text-[11px]">
               📔
             </span>
             Emotional journal
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-pink-500/10 border border-pink-300/60 text-pink-100">
+              NEW
+            </span>
             <span className="opacity-0 group-hover:opacity-100 transition-all">
               →
             </span>
@@ -233,6 +267,9 @@ export default function PremiumHomepage({
               🌙
             </span>
             Calm Companion
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/10 border border-emerald-300/60 text-emerald-100">
+              NEW
+            </span>
             <span className="opacity-0 group-hover:opacity-100 transition-all">
               →
             </span>
@@ -309,7 +346,7 @@ export default function PremiumHomepage({
             </div>
           </div>
 
-          {/* Compact recap / nudge card to fill left side height */}
+          {/* Compact recap / nudge card */}
           <div className="rounded-2xl bg-slate-900/85 border border-slate-800 p-5 shadow-xl shadow-black/40">
             <p className="text-[11px] uppercase tracking-[0.2em] text-amber-300/80 mb-2">
               Gentle recap
