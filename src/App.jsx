@@ -10,6 +10,7 @@ import Chat from "./components/chat";
 import PremiumButton from "./components/PremiumButton";
 import { useAuth } from "./hooks/useAuth";
 import PremiumHomepage from "./components/PremiumHomepage";
+import SupportSection from "./components/SupportSection";
 
 export default function App() {
   const chatRef = useRef(null);
@@ -664,6 +665,9 @@ export default function App() {
               )}
             </div>
           </section>
+
+          {/* GLOBAL SUPPORT SECTION (visible on every page) */}
+          <SupportSection />
 
           {/* FOOTER */}
           <footer className="border-t border-slate-800 bg-slate-950">
