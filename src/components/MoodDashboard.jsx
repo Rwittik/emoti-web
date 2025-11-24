@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { db } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 
 /**
  * Fallback sample weekly mood data.
@@ -132,6 +132,19 @@ function moodColor(mood) {
     case "low":
     default:
       return "bg-rose-400";
+  }
+}
+
+// same but as hex colours for the SVG dots
+function moodHex(mood) {
+  switch (mood) {
+    case "high":
+      return "#34d399"; // emerald-400
+    case "okay":
+      return "#38bdf8"; // sky-400
+    case "low":
+    default:
+      return "#fb7185"; // rose-400
   }
 }
 
@@ -294,6 +307,31 @@ function buildWeekFromEvents(events, weekOffset, fallbackWeek) {
   };
 }
 
+// build an SVG path string for the line chart
+function buildLinePath(days) {
+  if (!days || !days.length) return "";
+
+  const points = days
+    .map((day, index) => ({
+      index,
+      score: day.score && day.score > 0 ? day.score : null,
+    }))
+    .filter((p) => p.score !== null);
+
+  if (!points.length) return "";
+
+  const maxIndex = Math.max(days.length - 1, 1);
+
+  return points
+    .map((p, i) => {
+      const x = (p.index / maxIndex) * 100;
+      const y = 100 - ((p.score - 1) / 4) * 100; // score 1..5 -> 100..0
+      const cmd = i === 0 ? "M" : "L";
+      return `${cmd}${x},${y}`;
+    })
+    .join(" ");
+}
+
 export default function MoodDashboard({ onBack }) {
   const { user } = useAuth();
   const [selectedWeekId, setSelectedWeekId] = useState("this-week");
@@ -301,67 +339,65 @@ export default function MoodDashboard({ onBack }) {
   // moodEvents now loaded from Firestore (with localStorage fallback)
   const [moodEvents, setMoodEvents] = useState([]);
 
-  // load / reload mood events whenever the dashboard mounts (and when user changes)
+  // 🔄 Real-time load / reload mood events whenever user changes
   useEffect(() => {
     if (!user) {
       setMoodEvents([]);
       return;
     }
 
-    let cancelled = false;
+    const userRef = doc(db, "users", user.uid);
 
-    async function loadMoodEvents() {
-      try {
-        let events = [];
-
-        // 1) Try Firestore
-        const userRef = doc(db, "users", user.uid);
-        const snap = await getDoc(userRef);
-
-        if (snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data.moodEvents)) {
-            events = data.moodEvents;
+    const unsubscribe = onSnapshot(
+      userRef,
+      (snap) => {
+        try {
+          let events = [];
+          if (snap.exists()) {
+            const data = snap.data();
+            if (Array.isArray(data.moodEvents)) {
+              events = data.moodEvents;
+            }
           }
-        }
 
-        // 2) Fallback to localStorage if Firestore empty
-        if (!events.length) {
+          // Fallback to localStorage if Firestore has no moodEvents yet
+          if (!events.length && typeof window !== "undefined") {
+            try {
+              const raw = window.localStorage.getItem(getMoodKey(user.uid));
+              const parsed = raw ? JSON.parse(raw) : [];
+              events = Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+              console.error(
+                "Failed to read mood events from localStorage",
+                err
+              );
+            }
+          }
+
+          setMoodEvents(events);
+        } catch (err) {
+          console.error("Error processing mood events snapshot", err);
+        }
+      },
+      (error) => {
+        console.error("Failed to subscribe to mood events:", error);
+
+        // On error, still try localStorage once
+        if (typeof window !== "undefined") {
           try {
             const raw = window.localStorage.getItem(getMoodKey(user.uid));
             const parsed = raw ? JSON.parse(raw) : [];
-            events = Array.isArray(parsed) ? parsed : [];
-          } catch (err) {
-            console.error("Failed to read mood events from localStorage", err);
-          }
-        }
-
-        if (!cancelled) {
-          setMoodEvents(events);
-        }
-      } catch (err) {
-        console.error("Failed to load mood events from Firestore", err);
-
-        // On error, still try localStorage
-        try {
-          const raw = window.localStorage.getItem(getMoodKey(user.uid));
-          const parsed = raw ? JSON.parse(raw) : [];
-          if (!cancelled) {
             setMoodEvents(Array.isArray(parsed) ? parsed : []);
-          }
-        } catch (err2) {
-          console.error("Failed to read mood events from localStorage", err2);
-          if (!cancelled) {
+          } catch (err2) {
+            console.error("Failed to read mood events from localStorage", err2);
             setMoodEvents([]);
           }
         }
       }
-    }
-
-    loadMoodEvents();
+    );
 
     return () => {
-      cancelled = true;
+      unsubscribe();
     };
   }, [user]);
 
@@ -425,6 +461,15 @@ export default function MoodDashboard({ onBack }) {
       total: daysWithData.length,
     };
   }, [activeWeek]);
+
+  // line chart path
+  const linePath = useMemo(
+    () => buildLinePath(activeWeek?.days || []),
+    [activeWeek]
+  );
+
+  const daysCount = activeWeek?.days?.length || 0;
+  const maxIndex = Math.max(daysCount - 1, 1);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 pb-16">
@@ -514,37 +559,86 @@ export default function MoodDashboard({ onBack }) {
         <section className="grid md:grid-cols-3 gap-6 mb-10">
           <div className="md:col-span-2 rounded-2xl bg-slate-900/80 border border-slate-800 p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Weekly mood line</h3>
+              <h3 className="text-sm font-semibold">Weekly mood trend</h3>
               <span className="text-[11px] text-slate-500">
-                Each bar shows how heavy/light the day felt based on EMOTI’s
-                responses.
+                Line shows average mood score (1–5) for each day.
               </span>
             </div>
 
-            <div className="mt-4 flex items-end gap-3 h-40">
-              {activeWeek.days.map((day) => {
-                const height = day.score > 0 ? (day.score / 5) * 100 : 0;
-                return (
-                  <div
-                    key={day.id}
-                    className="flex-1 flex flex-col items-center gap-2"
-                  >
-                    <div
-                      className={`w-full max-w-[20px] rounded-full ${
-                        day.score > 0
-                          ? moodColor(day.mood)
-                          : "bg-slate-800/60 border border-slate-700"
-                      } transition`}
-                      style={{
-                        height: `${day.score > 0 ? Math.max(height, 10) : 4}%`,
-                      }}
+            {/* Line chart */}
+            <div className="mt-4">
+              <div className="relative h-40">
+                <svg
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  className="absolute inset-0 w-full h-full"
+                >
+                  {/* horizontal grid lines for scores 1–5 */}
+                  {[1, 2, 3, 4, 5].map((score) => {
+                    const y = 100 - ((score - 1) / 4) * 100;
+                    return (
+                      <g key={score}>
+                        <line
+                          x1="0"
+                          x2="100"
+                          y1={y}
+                          y2={y}
+                          stroke="#1f2937"
+                          strokeWidth={0.3}
+                          strokeDasharray="1.5 1.5"
+                        />
+                        <text
+                          x="1"
+                          y={y - 1.5}
+                          fontSize="4"
+                          fill="#6b7280"
+                        >
+                          {score}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {/* mood line */}
+                  {linePath && (
+                    <path
+                      d={linePath}
+                      fill="none"
+                      stroke="#facc15"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     />
-                    <span className="text-[10px] text-slate-400">
-                      {day.label}
-                    </span>
-                  </div>
-                );
-              })}
+                  )}
+
+                  {/* dots */}
+                  {activeWeek.days.map((day, index) => {
+                    if (!day.score || day.score <= 0) return null;
+                    const x = (index / maxIndex) * 100;
+                    const y = 100 - ((day.score - 1) / 4) * 100;
+                    return (
+                      <circle
+                        key={day.id}
+                        cx={x}
+                        cy={y}
+                        r="2"
+                        fill={moodHex(day.mood)}
+                        stroke="#020617"
+                        strokeWidth="0.6"
+                      />
+                    );
+                  })}
+                </svg>
+              </div>
+
+              {/* X-axis labels */}
+              <div className="mt-2 flex justify-between text-[10px] text-slate-400">
+                {activeWeek.days.map((day) => (
+                  <span key={day.id} className="w-8 text-center">
+                    {day.label}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-4 text-[10px] text-slate-400">
