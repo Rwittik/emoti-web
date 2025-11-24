@@ -1,6 +1,8 @@
 // src/components/EmotionImages.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 // Fallback sample AI emotion images data (used if no real mood events yet)
 const SAMPLE_EMOTION_IMAGES = [
@@ -84,7 +86,7 @@ const FILTERS = [
   { id: "mixed", label: "Mixed" },
 ];
 
-// -------- helpers to read mood events from localStorage --------
+// -------- helpers to read mood events --------
 
 function getMoodKey(uid) {
   return `emoti_mood_events_${uid}`;
@@ -246,7 +248,6 @@ function gradientForCard(id, mood) {
   const colors = palettes[mood] || palettes.mixed;
 
   const angle = seed % 360; // 0–359
-  const extraAngle = (seed * 7) % 360;
 
   return {
     backgroundImage: `
@@ -266,25 +267,69 @@ export default function EmotionImages({ onBack }) {
   const [activeFilter, setActiveFilter] = useState("all");
   const [images, setImages] = useState(SAMPLE_EMOTION_IMAGES);
 
-  // Load mood events from localStorage and build personalised images
+  // 🔄 Load mood events from Firestore first, then localStorage, then build images
   useEffect(() => {
-    if (!user) return;
-    if (typeof window === "undefined") return;
-
-    try {
-      const key = getMoodKey(user.uid);
-      const raw = window.localStorage.getItem(key);
-      const events = raw ? JSON.parse(raw) : [];
-
-      const built = buildImagesFromEvents(events);
-
-      // if we have any real data, use it; otherwise keep the sample cards
-      if (built.length > 0) {
-        setImages(built);
-      }
-    } catch (err) {
-      console.error("Failed to load mood events for EmotionImages:", err);
+    // if logged out, show samples again
+    if (!user) {
+      setImages(SAMPLE_EMOTION_IMAGES);
+      return;
     }
+
+    let cancelled = false;
+
+    async function load() {
+      try {
+        let events = [];
+
+        // 1) Try Firestore
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.moodEvents)) {
+            events = data.moodEvents;
+          }
+        }
+
+        // 2) Fallback to localStorage if Firestore empty
+        if (!events.length && typeof window !== "undefined") {
+          try {
+            const raw = window.localStorage.getItem(getMoodKey(user.uid));
+            const parsed = raw ? JSON.parse(raw) : [];
+            events = Array.isArray(parsed) ? parsed : [];
+          } catch (err) {
+            console.error(
+              "Failed to read mood events from localStorage for EmotionImages",
+              err
+            );
+          }
+        }
+
+        const built = buildImagesFromEvents(events);
+
+        if (!cancelled) {
+          if (built.length > 0) {
+            setImages(built);
+          } else {
+            setImages(SAMPLE_EMOTION_IMAGES);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load mood events for EmotionImages:", err);
+
+        // On error, fall back to samples (so page still works)
+        if (!cancelled) {
+          setImages(SAMPLE_EMOTION_IMAGES);
+        }
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const visibleImages = useMemo(() => {
