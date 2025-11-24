@@ -336,6 +336,9 @@ export default function MoodDashboard({ onBack }) {
   const { user } = useAuth();
   const [selectedWeekId, setSelectedWeekId] = useState("this-week");
 
+  // "line" | "bar"
+  const [viewMode, setViewMode] = useState("line");
+
   // moodEvents now loaded from Firestore (with localStorage fallback)
   const [moodEvents, setMoodEvents] = useState([]);
 
@@ -559,87 +562,152 @@ export default function MoodDashboard({ onBack }) {
         <section className="grid md:grid-cols-3 gap-6 mb-10">
           <div className="md:col-span-2 rounded-2xl bg-slate-900/80 border border-slate-800 p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Weekly mood trend</h3>
-              <span className="text-[11px] text-slate-500">
-                Line shows average mood score (1–5) for each day.
-              </span>
-            </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-sm font-semibold">
+                  Weekly mood{" "}
+                  {viewMode === "line" ? "trend (line)" : "intensity (bars)"}
+                </h3>
+                <span className="text-[11px] text-slate-500">
+                  {viewMode === "line"
+                    ? "Line shows average mood score (1–5) for each day."
+                    : "Bars show how heavy / light each day felt."}
+                </span>
+              </div>
 
-            {/* Line chart */}
-            <div className="mt-4">
-              <div className="relative h-40">
-                <svg
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                  className="absolute inset-0 w-full h-full"
+              {/* tiny toggle */}
+              <div className="flex items-center rounded-full bg-slate-900/80 border border-slate-700 p-0.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("line")}
+                  className={`px-2.5 py-1 rounded-full transition ${
+                    viewMode === "line"
+                      ? "bg-amber-400 text-slate-950"
+                      : "text-slate-300 hover:text-amber-200"
+                  }`}
                 >
-                  {/* horizontal grid lines for scores 1–5 */}
-                  {[1, 2, 3, 4, 5].map((score) => {
-                    const y = 100 - ((score - 1) / 4) * 100;
-                    return (
-                      <g key={score}>
-                        <line
-                          x1="0"
-                          x2="100"
-                          y1={y}
-                          y2={y}
-                          stroke="#1f2937"
-                          strokeWidth={0.3}
-                          strokeDasharray="1.5 1.5"
-                        />
-                        <text
-                          x="1"
-                          y={y - 1.5}
-                          fontSize="4"
-                          fill="#6b7280"
-                        >
-                          {score}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  {/* mood line */}
-                  {linePath && (
-                    <path
-                      d={linePath}
-                      fill="none"
-                      stroke="#facc15"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  )}
-
-                  {/* dots */}
-                  {activeWeek.days.map((day, index) => {
-                    if (!day.score || day.score <= 0) return null;
-                    const x = (index / maxIndex) * 100;
-                    const y = 100 - ((day.score - 1) / 4) * 100;
-                    return (
-                      <circle
-                        key={day.id}
-                        cx={x}
-                        cy={y}
-                        r="2"
-                        fill={moodHex(day.mood)}
-                        stroke="#020617"
-                        strokeWidth="0.6"
-                      />
-                    );
-                  })}
-                </svg>
-              </div>
-
-              {/* X-axis labels */}
-              <div className="mt-2 flex justify-between text-[10px] text-slate-400">
-                {activeWeek.days.map((day) => (
-                  <span key={day.id} className="w-8 text-center">
-                    {day.label}
-                  </span>
-                ))}
+                  Line
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("bar")}
+                  className={`px-2.5 py-1 rounded-full transition ${
+                    viewMode === "bar"
+                      ? "bg-amber-400 text-slate-950"
+                      : "text-slate-300 hover:text-amber-200"
+                  }`}
+                >
+                  Bars
+                </button>
               </div>
             </div>
+
+            {/* Chart body */}
+            {viewMode === "line" ? (
+              // LINE CHART
+              <div className="mt-4">
+                <div className="relative h-40">
+                  <svg
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                    className="absolute inset-0 w-full h-full"
+                  >
+                    {/* horizontal grid lines for scores 1–5 */}
+                    {[1, 2, 3, 4, 5].map((score) => {
+                      const y = 100 - ((score - 1) / 4) * 100;
+                      return (
+                        <g key={score}>
+                          <line
+                            x1="0"
+                            x2="100"
+                            y1={y}
+                            y2={y}
+                            stroke="#1f2937"
+                            strokeWidth={0.3}
+                            strokeDasharray="1.5 1.5"
+                          />
+                          <text
+                            x="1"
+                            y={y - 1.5}
+                            fontSize="4"
+                            fill="#6b7280"
+                          >
+                            {score}
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {/* mood line */}
+                    {linePath && (
+                      <path
+                        d={linePath}
+                        fill="none"
+                        stroke="#facc15"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
+
+                    {/* dots */}
+                    {activeWeek.days.map((day, index) => {
+                      if (!day.score || day.score <= 0) return null;
+                      const x = (index / maxIndex) * 100;
+                      const y = 100 - ((day.score - 1) / 4) * 100;
+                      return (
+                        <circle
+                          key={day.id}
+                          cx={x}
+                          cy={y}
+                          r="2"
+                          fill={moodHex(day.mood)}
+                          stroke="#020617"
+                          strokeWidth="0.6"
+                        />
+                      );
+                    })}
+                  </svg>
+                </div>
+
+                {/* X-axis labels */}
+                <div className="mt-2 flex justify-between text-[10px] text-slate-400">
+                  {activeWeek.days.map((day) => (
+                    <span key={day.id} className="w-8 text-center">
+                      {day.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              // BAR CHART (old style, but inside same card)
+              <div className="mt-4 flex items-end gap-3 h-40">
+                {activeWeek.days.map((day) => {
+                  const height = day.score > 0 ? (day.score / 5) * 100 : 0;
+                  return (
+                    <div
+                      key={day.id}
+                      className="flex-1 flex flex-col items-center gap-2"
+                    >
+                      <div
+                        className={`w-full max-w-[20px] rounded-full ${
+                          day.score > 0
+                            ? moodColor(day.mood)
+                            : "bg-slate-800/60 border border-slate-700"
+                        } transition`}
+                        style={{
+                          height: `${
+                            day.score > 0 ? Math.max(height, 10) : 4
+                          }%`,
+                        }}
+                      />
+                      <span className="text-[10px] text-slate-400">
+                        {day.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="mt-4 flex flex-wrap gap-4 text-[10px] text-slate-400">
               <div className="flex items-center gap-1">
