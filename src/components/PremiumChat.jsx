@@ -482,8 +482,8 @@ export default function PremiumChat() {
   return (
     <div className="w-full max-w-4xl mx-auto bg-gradient-to-b from-slate-950/90 via-slate-900/95 to-slate-950/90 rounded-[2rem] border border-amber-400/50 shadow-[0_0_50px_rgba(250,204,21,0.25)] flex flex-col overflow-hidden">
       {/* HEADER */}
-      <header className="flex flex-col gap-3 px-6 py-4 border-b border-amber-400/30 bg-slate-950/90">
-        <div className="flex items-center justify-between gap-4">
+      <header className="flex flex-col gap-4 px-6 py-4 border-b border-amber-400/30 bg-slate-950/95">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 via-fuchsia-500 to-sky-400 flex items-center justify-center text-slate-950 font-bold text-lg shadow-lg">
               🙂
@@ -492,47 +492,53 @@ export default function PremiumChat() {
               <h2 className="text-sm font-semibold flex items-center gap-2">
                 EMOTI Premium
                 <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/50 text-[10px] text-amber-200">
-                  Priority
+                  Priority space
                 </span>
               </h2>
               <p className="text-[11px] text-slate-400">
-                A softer, deeper space just for you.
+                A softer, deeper room just for you. Take your time.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="border border-amber-400/40 bg-slate-950/80 text-[11px] rounded-full px-3 py-1 text-slate-100"
-            >
-              <option>Hindi</option>
-              <option>Odia</option>
-              <option>Bengali</option>
-              <option>Tamil</option>
-              <option>Telugu</option>
-              <option>Marathi</option>
-              <option>English</option>
-            </select>
+          {/* language + personality selection */}
+          <div className="flex flex-col items-start md:items-end gap-1">
+            <div className="flex gap-2">
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="border border-amber-400/40 bg-slate-950/90 text-[11px] rounded-full px-3 py-1 text-slate-100 shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+              >
+                <option>Hindi</option>
+                <option>Odia</option>
+                <option>Bengali</option>
+                <option>Tamil</option>
+                <option>Telugu</option>
+                <option>Marathi</option>
+                <option>English</option>
+              </select>
 
-            <select
-              value={personality}
-              onChange={(e) => setPersonality(e.target.value)}
-              className="border border-amber-400/40 bg-slate-950/80 text-[11px] rounded-full px-3 py-1 text-slate-100"
-            >
-              <option>Friend</option>
-              <option>Sister</option>
-              <option>Brother</option>
-              <option>Mentor</option>
-              <option>Soft Romantic</option>
-            </select>
+              <select
+                value={personality}
+                onChange={(e) => setPersonality(e.target.value)}
+                className="border border-amber-400/40 bg-slate-950/90 text-[11px] rounded-full px-3 py-1 text-slate-100 shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+              >
+                <option>Friend</option>
+                <option>Sister</option>
+                <option>Brother</option>
+                <option>Mentor</option>
+                <option>Soft Romantic</option>
+              </select>
+            </div>
+            <span className="text-[10px] text-slate-500">
+              Switch language & tone anytime. EMOTI will adapt.
+            </span>
           </div>
         </div>
 
         {/* session controls: previous chats + new chat + rename + delete */}
-        <div className="flex flex-col gap-2 text-[11px]">
-          <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-2 text-[11px] mt-1">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="text-slate-400">Conversation:</span>
               <select
