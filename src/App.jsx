@@ -11,6 +11,7 @@ import PremiumButton from "./components/PremiumButton";
 import { useAuth } from "./hooks/useAuth";
 import PremiumHomepage from "./components/PremiumHomepage";
 import SupportSection from "./components/SupportSection";
+import SupportFab from "./components/SupportFab";
 
 export default function App() {
   const chatRef = useRef(null);
@@ -182,115 +183,139 @@ export default function App() {
         </div>
       </nav>
 
+      {/* floating support button on all views */}
+      <SupportFab />
+
       {/* PREMIUM CHAT PAGE (separate view for premium users) */}
       {user && isPremium && premiumView === "chat" ? (
-        <main className="bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[calc(100vh-56px)]">
-          <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-            {/* mobile stack, desktop row */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-              <div>
-                <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
-                  Premium chatroom
-                  <span className="px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/40 text-[11px] text-amber-200">
-                    Priority space
-                  </span>
-                </h1>
-                <p className="text-sm text-slate-400 mt-1">
-                  Your dedicated premium EMOTI space. You can later connect this
-                  to a different API endpoint for more features (image
-                  generation, deeper analysis, etc.).
-                </p>
-              </div>
-              <button
-                onClick={goToPremiumDashboard}
-                className="text-xs md:text-sm px-3 py-1.5 rounded-full border border-slate-700 hover:border-sky-400 hover:text-sky-300 self-start sm:self-auto"
-              >
-                ← Back to dashboard
-              </button>
-            </div>
-
-            <div className="mt-6 w-full">
-              {/* Small strip above the chat */}
-              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[11px] text-slate-400 max-w-4xl mx-auto">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px]">
-                    🙂
-                  </div>
-                  <span className="font-medium text-slate-200">
-                    EMOTI · Premium mode
-                  </span>
+        <>
+          <main className="bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[calc(100vh-56px)]">
+            <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+              {/* mobile stack, desktop row */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <div>
+                  <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+                    Premium chatroom
+                    <span className="px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/40 text-[11px] text-amber-200">
+                      Priority space
+                    </span>
+                  </h1>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Your dedicated premium EMOTI space. You can later connect
+                    this to a different API endpoint for more features (image
+                    generation, deeper analysis, etc.).
+                  </p>
                 </div>
-                {user && (
-                  <div className="flex items-center gap-1">
-                    <span className="hidden sm:inline">You</span>
-                    {user.photoURL ? (
-                      <img
-                        src={user.photoURL}
-                        alt="You"
-                        className="w-6 h-6 rounded-full border border-slate-600 object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[10px] font-semibold">
-                        {userInitial}
-                      </div>
-                    )}
-                    <span className="max-w-[140px] truncate text-slate-200 text-[11px]">
-                      {user.displayName || user.email}
+                <button
+                  onClick={goToPremiumDashboard}
+                  className="text-xs md:text-sm px-3 py-1.5 rounded-full border border-slate-700 hover:border-sky-400 hover:text-sky-300 self-start sm:self-auto"
+                >
+                  ← Back to dashboard
+                </button>
+              </div>
+
+              <div className="mt-6 w-full">
+                {/* Small strip above the chat */}
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[11px] text-slate-400 max-w-4xl mx-auto">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px]">
+                      🙂
+                    </div>
+                    <span className="font-medium text-slate-200">
+                      EMOTI · Premium mode
                     </span>
                   </div>
-                )}
+                  {user && (
+                    <div className="flex items-center gap-1">
+                      <span className="hidden sm:inline">You</span>
+                      {user.photoURL ? (
+                        <img
+                          src={user.photoURL}
+                          alt="You"
+                          className="w-6 h-6 rounded-full border border-slate-600 object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[10px] font-semibold">
+                          {userInitial}
+                        </div>
+                      )}
+                      <span className="max-w-[140px] truncate text-slate-200 text-[11px]">
+                        {user.displayName || user.email}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bigger premium chat card */}
+                <PremiumChat />
               </div>
 
-              {/* Bigger premium chat card */}
-              <PremiumChat />
-            </div>
+              <p className="mt-4 text-[11px] text-slate-500 max-w-xl">
+                Later you can switch this to use a special endpoint like
+                <code className="mx-1">/api/premium-chat</code> or add extra
+                buttons (image generation, journaling, etc.).
+              </p>
+            </section>
+          </main>
 
-            <p className="mt-4 text-[11px] text-slate-500 max-w-xl">
-              Later you can switch this to use a special endpoint like
-              <code className="mx-1">/api/premium-chat</code> or add extra
-              buttons (image generation, journaling, etc.).
-            </p>
-          </section>
-        </main>
+          {/* Support on this view */}
+          <SupportSection />
+        </>
       ) : user && isPremium && premiumView === "mood" ? (
-        // Mood dashboard full page
-        <MoodDashboard onBack={goToPremiumDashboard} />
+        <>
+          {/* Mood dashboard full page */}
+          <MoodDashboard onBack={goToPremiumDashboard} />
+          <SupportSection />
+        </>
       ) : user && isPremium && premiumView === "images" ? (
-        // AI Emotion Images full page
-        <EmotionImages onBack={goToPremiumDashboard} />
+        <>
+          {/* AI Emotion Images full page */}
+          <EmotionImages onBack={goToPremiumDashboard} />
+          <SupportSection />
+        </>
       ) : user && isPremium && premiumView === "journal" ? (
-        // Emotional Journal full page
-        <main className="bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[calc(100vh-56px)]">
-          <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-              <div>
-                <h1 className="text-xl md:text-2xl font-semibold">
-                  Emotional journal
-                </h1>
-                <p className="text-sm text-slate-400 mt-1">
-                  Capture small reflections from your day. Only you can see
-                  these entries.
-                </p>
+        <>
+          {/* Emotional Journal full page */}
+          <main className="bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[calc(100vh-56px)]">
+            <section className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <div>
+                  <h1 className="text-xl md:text-2xl font-semibold">
+                    Emotional journal
+                  </h1>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Capture small reflections from your day. Only you can see
+                    these entries.
+                  </p>
+                </div>
+                <button
+                  onClick={goToPremiumDashboard}
+                  className="text-xs md:text-sm px-3 py-1.5 rounded-full border border-slate-700 hover:border-sky-400 hover:text-sky-300 self-start sm:self-auto"
+                >
+                  ← Back to dashboard
+                </button>
               </div>
-              <button
-                onClick={goToPremiumDashboard}
-                className="text-xs md:text-sm px-3 py-1.5 rounded-full border border-slate-700 hover:border-sky-400 hover:text-sky-300 self-start sm:self-auto"
-              >
-                ← Back to dashboard
-              </button>
-            </div>
 
-            {/* Journal component */}
-            <Journal />
-          </section>
-        </main>
+              {/* Journal component */}
+              <Journal />
+            </section>
+          </main>
+
+          <SupportSection />
+        </>
       ) : user && isPremium && premiumView === "music" ? (
-        // Emotion playlist full page
-        <EmotionPlaylist onBack={goToPremiumDashboard} />
+        <>
+          {/* Emotion playlist full page */}
+          <EmotionPlaylist onBack={goToPremiumDashboard} />
+          <SupportSection />
+        </>
       ) : user && isPremium && premiumView === "calm" ? (
-        // ✅ NEW: Calm Companion full page
-        <CalmCompanion onBack={goToPremiumDashboard} />
+        <>
+          {/* ✅ NEW: Calm Companion full page */}
+          <CalmCompanion onBack={goToPremiumDashboard} />
+          <SupportSection />
+        </>
       ) : (
         <>
           {/* PREMIUM HOMEPAGE (only for premium users) */}
@@ -666,7 +691,7 @@ export default function App() {
             </div>
           </section>
 
-          {/* GLOBAL SUPPORT SECTION (visible on every page) */}
+          {/* GLOBAL SUPPORT SECTION (visible on home view) */}
           <SupportSection />
 
           {/* FOOTER */}
