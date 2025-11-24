@@ -109,13 +109,22 @@ function useProvideAuth() {
   // 1) Real premium flag from Firestore
   const firestorePremium = profile?.activePremium === true;
 
-  // 2) Hardcoded special Gmail that always has premium (for you)
-  const SPECIAL_PREMIUM_EMAIL = "dashadhikary@gmail.com";
+  // 2) Hardcoded special emails that always have premium (for you, test accounts, etc.)
+  const SPECIAL_PREMIUM_EMAILS = [
+    "dashadhikary@gmail.com",
+    "santmoumita100@gmail.com",
+    // add more here:
+    // "secondmail@gmail.com",
+    // "testaccount@example.com",
+  ];
+
+  // normalize email to lowercase before checking
+  const userEmail = user?.email ? user.email.toLowerCase() : null;
+  const hasHardcodedPremium =
+    !!userEmail && SPECIAL_PREMIUM_EMAILS.includes(userEmail);
 
   // 3) Final premium flag used by the app
-  const isPremium =
-    firestorePremium ||
-    (user && user.email === SPECIAL_PREMIUM_EMAIL);
+  const isPremium = firestorePremium || hasHardcodedPremium;
 
   return {
     user,
