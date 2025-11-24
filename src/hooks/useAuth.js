@@ -110,7 +110,7 @@ function useProvideAuth() {
   const firestorePremium = profile?.activePremium === true;
 
   // 2) Hardcoded special Gmail that always has premium (for you)
-  const SPECIAL_PREMIUM_EMAIL = "dashadhikary@gmail.com";
+  const SPECIAL_PREMIUM_EMAIL = "dashadhikary@gmail.com" & "santmoumita100@gmail.com";
 
   // 3) Final premium flag used by the app
   const isPremium =
