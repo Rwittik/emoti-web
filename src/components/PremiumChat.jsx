@@ -477,12 +477,24 @@ export default function PremiumChat() {
   };
 
   // -----------------------------
+  // Small info for header session label
+  // -----------------------------
+  const activeIndex = sessions.findIndex((s) => s.id === activeSessionId);
+  const sessionLabel =
+    activeIndex >= 0
+      ? `Session ${activeIndex + 1} of ${sessions.length}`
+      : sessions.length > 0
+      ? `${sessions.length} saved chats`
+      : "1 saved chat";
+
+  // -----------------------------
   // UI RENDER
   // -----------------------------
   return (
     <div className="w-full max-w-4xl mx-auto bg-gradient-to-b from-slate-950/90 via-slate-900/95 to-slate-950/90 rounded-[2rem] border border-amber-400/50 shadow-[0_0_50px_rgba(250,204,21,0.25)] flex flex-col overflow-hidden">
       {/* HEADER */}
       <header className="flex flex-col gap-4 px-6 py-4 border-b border-amber-400/30 bg-slate-950/95">
+        {/* top row: title + language/mode */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 via-fuchsia-500 to-sky-400 flex items-center justify-center text-slate-950 font-bold text-lg shadow-lg">
@@ -537,49 +549,69 @@ export default function PremiumChat() {
         </div>
 
         {/* session controls: previous chats + new chat + rename + delete */}
-        <div className="flex flex-col gap-2 text-[11px] mt-1">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">Conversation:</span>
-              <select
-                value={activeSessionId || ""}
-                onChange={(e) => switchSession(e.target.value)}
-                className="border border-amber-400/40 bg-slate-950/80 rounded-full px-3 py-1 text-[11px] text-slate-100"
-              >
-                {sessions.map((s, index) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title || `Chat ${index + 1}`}
-                  </option>
-                ))}
-              </select>
+        <div className="rounded-2xl border border-amber-400/15 bg-slate-950/80 px-4 py-3 shadow-inner/30 shadow-[0_0_25px_rgba(15,23,42,0.8)] text-[11px]">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(250,204,21,0.8)]" />
+                <span className="font-medium text-slate-100">
+                  Conversation space
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500">{sessionLabel}</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={startNewChat}
-                className="px-3 py-1.5 rounded-full bg-amber-400/90 hover:bg-amber-300 text-slate-950 text-[11px] font-semibold"
-              >
-                + New premium chat
-              </button>
-              <button
-                onClick={deleteCurrentSession}
-                className="px-3 py-1.5 rounded-full border border-amber-400/50 text-amber-200 hover:bg-amber-400/10 text-[11px]"
-              >
-                Delete
-              </button>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Conversation:</span>
+                <select
+                  value={activeSessionId || ""}
+                  onChange={(e) => switchSession(e.target.value)}
+                  className="border border-amber-400/40 bg-slate-950/90 rounded-full px-3 py-1 text-[11px] text-slate-100 shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
+                >
+                  {sessions.map((s, index) => (
+                    <option key={s.id} value={s.id}>
+                      {s.title || `Chat ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 justify-end">
+                <button
+                  onClick={startNewChat}
+                  className="px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 hover:from-amber-300 hover:via-amber-200 hover:to-amber-300 text-slate-950 text-[11px] font-semibold shadow-md"
+                >
+                  + New premium chat
+                </button>
+                <button
+                  onClick={deleteCurrentSession}
+                  className="px-3 py-1.5 rounded-full border border-rose-400/60 text-rose-200 hover:bg-rose-500/10 text-[11px]"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
 
           {/* rename field */}
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400">Rename:</span>
-            <input
-              type="text"
-              value={titleInput}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              placeholder="Conversation title"
-              className="flex-1 bg-slate-900/80 border border-amber-400/30 rounded-full px-3 py-1 text-[11px] text-slate-100 placeholder:text-slate-500"
-            />
+          <div className="flex flex-col md:flex-row md:items-center gap-2">
+            <div className="flex items-center gap-2 md:min-w-[90px]">
+              <span className="text-slate-400">Rename:</span>
+            </div>
+            <div className="flex-1 flex flex-col gap-1">
+              <input
+                type="text"
+                value={titleInput}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                placeholder="Conversation title"
+                className="bg-slate-900/80 border border-amber-400/30 rounded-full px-3 py-1 text-[11px] text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-300"
+              />
+              <span className="text-[10px] text-slate-500">
+                Only you can see these titles. Use them to mark special nights
+                or themes.
+              </span>
+            </div>
           </div>
         </div>
       </header>
