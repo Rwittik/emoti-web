@@ -1,6 +1,8 @@
 // src/components/chat.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { db } from "../firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 const API_URL = "/api/chat";
 
@@ -22,6 +24,11 @@ function getInitialMessages() {
   ];
 }
 
+// localStorage key helper
+function getStorageKey(uid) {
+  return `emoti_chat_${uid}`;
+}
+
 export default function Chat() {
   const { user, isPremium } = useAuth();
 
@@ -35,58 +42,115 @@ export default function Chat() {
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
 
+  // Edit / delete helpers
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+
   const boxRef = useRef(null);
 
   const canUseVoice = !!user && isPremium; // only premium & logged in
 
+  // -----------------------------
   // Auto scroll chat
+  // -----------------------------
   useEffect(() => {
     if (boxRef.current) {
       boxRef.current.scrollTop = boxRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Load messages per user (localStorage)
+  // -----------------------------
+  // Load messages for this user (Firestore → localStorage → default)
+  // -----------------------------
   useEffect(() => {
     if (!user) {
       setMessages(getInitialMessages());
       return;
     }
 
-    const key = `emoti_chat_${user.uid}`;
+    const key = getStorageKey(user.uid);
 
-    try {
-      const stored = window.localStorage.getItem(key);
-      if (!stored) {
+    async function loadMessages() {
+      try {
+        let messagesToUse = [];
+
+        // 1) Try Firestore
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.chatMessages)) {
+            messagesToUse = data.chatMessages;
+          }
+        }
+
+        // 2) Fallback to localStorage
+        if (!messagesToUse.length) {
+          try {
+            const stored = window.localStorage.getItem(key);
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                messagesToUse = parsed;
+              }
+            }
+          } catch (err) {
+            console.error("Chat: failed to read from localStorage", err);
+          }
+        }
+
+        // 3) If still nothing, use default
+        if (!messagesToUse.length) {
+          messagesToUse = getInitialMessages();
+        }
+
+        setMessages(messagesToUse);
+      } catch (err) {
+        console.error("Chat: failed to load from Firestore", err);
+        // final fallback
         setMessages(getInitialMessages());
-        return;
       }
-
-      const parsed = JSON.parse(stored);
-
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setMessages(parsed);
-      } else {
-        setMessages(getInitialMessages());
-      }
-    } catch (err) {
-      console.error("Failed to load stored chat:", err);
-      setMessages(getInitialMessages());
     }
+
+    loadMessages();
   }, [user]);
 
-  // Save messages whenever they change (only when logged in)
+  // -----------------------------
+  // Persist messages whenever they change (Firestore + localStorage cache)
+  // -----------------------------
   useEffect(() => {
     if (!user) return;
-    const key = `emoti_chat_${user.uid}`;
+
+    const key = getStorageKey(user.uid);
+
+    // localStorage cache (best effort)
     try {
       window.localStorage.setItem(key, JSON.stringify(messages));
     } catch (err) {
-      console.error("Failed to save chat:", err);
+      console.error("Chat: failed to save to localStorage", err);
     }
+
+    // Firestore sync (do not await here; fire-and-forget)
+    async function saveToCloud() {
+      try {
+        const userRef = doc(db, "users", user.uid);
+        await setDoc(
+          userRef,
+          { chatMessages: messages },
+          { merge: true } // do not overwrite other fields
+        );
+      } catch (err) {
+        console.error("Chat: failed to sync messages to Firestore", err);
+      }
+    }
+
+    saveToCloud();
   }, [messages, user]);
 
+  // -----------------------------
   // TEXT CHAT SEND
+  // -----------------------------
   async function sendMessage() {
     if (!input.trim() || loading) return;
 
@@ -165,7 +229,48 @@ export default function Chat() {
     }
   }
 
+  // -----------------------------
+  // EDIT / DELETE MESSAGE
+  // -----------------------------
+  const handleStartEdit = (msg) => {
+    if (msg.from !== "user") return; // only edit own messages
+    setEditingId(msg.id);
+    setEditingText(msg.text);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingText("");
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingId) return;
+    const trimmed = editingText.trim();
+    if (!trimmed) {
+      // empty after edit = delete
+      handleDelete(editingId);
+      return;
+    }
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === editingId ? { ...m, text: trimmed, edited: true } : m
+      )
+    );
+    setEditingId(null);
+    setEditingText("");
+  };
+
+  const handleDelete = (id) => {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+    if (editingId === id) {
+      setEditingId(null);
+      setEditingText("");
+    }
+  };
+
+  // -----------------------------
   // VOICE RECORDING START (premium only)
+  // -----------------------------
   const startRecording = async () => {
     if (!canUseVoice || recording) return;
 
@@ -246,16 +351,17 @@ export default function Chat() {
     setRecording(false);
   };
 
+  // -----------------------------
   // UI RENDER
+  // -----------------------------
   return (
-    <div className="w-full max-w-2xl bg-slate-900/70 backdrop-blur rounded-2xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
+    <div className="w-full max-w-3xl bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 rounded-2xl shadow-[0_0_40px_rgba(15,23,42,0.8)] border border-slate-800 flex flex-col overflow-hidden">
       {/* HEADER */}
-      {/* desktop: same row layout as before; mobile: stacked with small gap */}
-      <header className="flex flex-col gap-2 sm:flex-row sm:gap-0 sm:items-center sm:justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/90">
+      <header className="flex flex-col gap-2 sm:flex-row sm:gap-0 sm:items-center sm:justify-between px-4 py-3 border-b border-slate-800 bg-slate-950/95">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A78BFA] to-[#38bdf8] flex items-center justify-center text-white font-bold text-lg">
-              E
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A78BFA] via-sky-400 to-emerald-400 flex items-center justify-center text-slate-950 font-bold text-lg shadow-lg">
+              🙂
             </div>
             <div>
               <h2 className="text-sm font-semibold">EMOTI</h2>
@@ -267,33 +373,31 @@ export default function Chat() {
 
           {!user && (
             <p className="text-[10px] text-amber-300 mt-0.5">
-              You&apos;re in guest mode. Chats are not saved and will reset if
-              you refresh. Sign in from the top bar to keep your conversation.
+              You&apos;re in guest mode. Chats are not saved to your account and
+              may reset. Sign in from the top bar to keep them.
             </p>
           )}
 
           {user && !isPremium && (
             <p className="text-[10px] text-slate-400 mt-0.5">
-              Free mode · Your messages are only stored on this device. Voice
-              notes and mood tools are part of EMOTI Premium.
+              Free mode · Your chat is saved to your EMOTI account and syncs
+              across devices. Voice notes are part of EMOTI Premium.
             </p>
           )}
 
           {user && isPremium && (
             <p className="text-[10px] text-emerald-300 mt-0.5">
-              Premium active · You can send voice notes here and use your
-              dedicated Premium space for deeper talks.
+              Premium active · Voice notes and deeper tools are unlocked.
             </p>
           )}
         </div>
 
         {/* LANGUAGE + PERSONALITY */}
-        {/* desktop: same row with gap; mobile: allowed to wrap if needed */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:justify-end">
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="border border-slate-700 bg-slate-900 text-[11px] rounded px-2 py-1"
+            className="border border-slate-700 bg-slate-900/90 text-[11px] rounded-full px-3 py-1 text-slate-100"
           >
             <option>Hindi</option>
             <option>Odia</option>
@@ -307,7 +411,7 @@ export default function Chat() {
           <select
             value={personality}
             onChange={(e) => setPersonality(e.target.value)}
-            className="border border-slate-700 bg-slate-900 text-[11px] rounded px-2 py-1"
+            className="border border-slate-700 bg-slate-900/90 text-[11px] rounded-full px-3 py-1 text-slate-100"
           >
             <option>Friend</option>
             <option>Sister</option>
@@ -319,47 +423,111 @@ export default function Chat() {
       </header>
 
       {/* CHAT MESSAGES */}
-      {/* p-4 on ≥sm so desktop looks like original; smaller padding only on tiny screens */}
       <main
         ref={boxRef}
-        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-slate-950/70 min-h-[260px] sm:min-h-[280px] md:min-h-[320px]"
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[260px] sm:min-h-[280px] md:min-h-[320px]"
       >
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${
-              msg.from === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            <div
-              className={`max-w-[80%] p-3 rounded-xl text-sm whitespace-pre-wrap ${
-                msg.from === "user"
-                  ? "bg-sky-500/20 text-right"
-                  : "bg-slate-800 text-left"
-              }`}
-            >
-              {msg.from === "emoti" && (
-                <div className="text-[10px] uppercase tracking-wide text-sky-300 mb-1">
-                  EMOTI
-                  {msg.emotion ? ` · ${msg.emotion}` : ""}
-                </div>
-              )}
+        {messages.map((msg) => {
+          const isUser = msg.from === "user";
+          const isEditing = editingId === msg.id;
 
-              <div>{msg.text}</div>
-              <div className="text-[10px] text-slate-400 mt-1">
-                {formatTime(msg.time)}
+          return (
+            <div
+              key={msg.id}
+              className={`flex ${
+                isUser ? "justify-end" : "justify-start"
+              } group`}
+            >
+              <div
+                className={`max-w-[80%] px-3 py-2.5 rounded-2xl text-sm whitespace-pre-wrap shadow-sm relative ${
+                  isUser
+                    ? "bg-sky-500/15 text-slate-50 rounded-br-sm border border-sky-500/40"
+                    : "bg-slate-800/95 text-slate-50 rounded-bl-sm border border-slate-700/80"
+                }`}
+              >
+                {/* EMOTI label */}
+                {msg.from === "emoti" && (
+                  <div className="text-[10px] uppercase tracking-wide text-sky-300 mb-1 flex items-center gap-1">
+                    <span>EMOTI</span>
+                    {msg.emotion && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-slate-900/70 border border-sky-400/50 lowercase">
+                        {msg.emotion}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Message content or editor */}
+                {isEditing ? (
+                  <div className="flex flex-col gap-1">
+                    <textarea
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      rows={2}
+                      className="w-full text-xs bg-slate-900/80 border border-slate-600 rounded-lg px-2 py-1 text-slate-100"
+                    />
+                    <div className="flex justify-end gap-2 text-[10px] mt-1">
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-600"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveEdit}
+                        className="px-2 py-0.5 rounded-full bg-emerald-500/90 text-slate-950 font-medium"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>{msg.text}</div>
+                )}
+
+                {/* Meta row: time + edited + actions */}
+                {!isEditing && (
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <span>{formatTime(msg.time)}</span>
+                      {msg.edited && (
+                        <span className="text-[9px] italic text-slate-500">
+                          · edited
+                        </span>
+                      )}
+                    </div>
+
+                    {isUser && (
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleStartEdit(msg)}
+                          className="hover:text-emerald-300"
+                        >
+                          Edit
+                        </button>
+                        <span className="w-[1px] h-3 bg-slate-600" />
+                        <button
+                          onClick={() => handleDelete(msg.id)}
+                          className="hover:text-rose-300"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {loading && (
           <div className="flex justify-start mt-1">
-            <div className="bg-slate-800 px-3 py-2 rounded-xl">
+            <div className="bg-slate-800/90 border border-slate-700 px-3 py-2 rounded-2xl">
               <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.2s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.1s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:-0.2s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:-0.1s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" />
               </div>
             </div>
           </div>
@@ -367,8 +535,7 @@ export default function Chat() {
       </main>
 
       {/* INPUT + VOICE */}
-      {/* desktop: row like before; mobile: stacked with full-width buttons */}
-      <footer className="border-t border-slate-800 bg-slate-900/90 px-3 py-2">
+      <footer className="border-t border-slate-800 bg-slate-950/95 px-3 py-2">
         <div className="flex flex-col gap-2 sm:flex-row">
           <textarea
             value={input}
@@ -376,13 +543,13 @@ export default function Chat() {
             onKeyDown={handleKey}
             rows={1}
             placeholder="Write something…"
-            className="flex-1 resize-none border border-slate-700 bg-slate-950 rounded px-3 py-2 text-sm text-slate-100"
+            className="flex-1 resize-none border border-slate-700 bg-slate-950 rounded-2xl px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
           />
 
           <button
             onClick={sendMessage}
             disabled={loading}
-            className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white px-4 py-2 rounded text-sm w-full sm:w-auto"
+            className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white px-4 py-2 rounded-2xl text-sm w-full sm:w-auto shadow-sm shadow-sky-500/40"
           >
             {loading ? "…" : "Send"}
           </button>
@@ -390,8 +557,10 @@ export default function Chat() {
           {canUseVoice ? (
             <button
               onClick={recording ? stopRecording : startRecording}
-              className={`flex items-center gap-1 px-4 py-2 rounded text-sm text-white w-full sm:w-auto ${
-                recording ? "bg-red-600" : "bg-purple-600"
+              className={`flex items-center justify-center gap-1 px-4 py-2 rounded-2xl text-sm text-white w-full sm:w-auto shadow-sm ${
+                recording
+                  ? "bg-rose-600 shadow-rose-500/40"
+                  : "bg-purple-600 shadow-purple-500/40 hover:bg-purple-500"
               }`}
             >
               {recording ? "Stop" : "Voice"}
@@ -403,7 +572,7 @@ export default function Chat() {
             <button
               type="button"
               disabled
-              className="flex items-center gap-1 px-4 py-2 rounded text-sm border border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed w-full sm:w-auto"
+              className="flex items-center justify-center gap-1 px-4 py-2 rounded-2xl text-sm border border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed w-full sm:w-auto"
               title="Voice notes are available in EMOTI Premium"
             >
               <span role="img" aria-label="lock">
