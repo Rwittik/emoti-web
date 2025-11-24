@@ -89,6 +89,10 @@ export default function PremiumChat() {
 
   const boxRef = useRef(null);
 
+  // 🔹 edit/delete state (same behaviour as normal chat)
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+
   // -----------------------------
   // Auto scroll chat
   // -----------------------------
@@ -251,6 +255,8 @@ export default function PremiumChat() {
     const session = sessions.find((s) => s.id === sessionId);
     setMessages(session?.messages || getInitialMessages());
     setTitleInput(session?.title || "");
+    setEditingId(null);
+    setEditingText("");
   };
 
   // -----------------------------
@@ -306,6 +312,115 @@ export default function PremiumChat() {
       setActiveSessionId(nextActive.id);
       setMessages(nextMessages);
       setTitleInput(nextActive.title || "");
+      setEditingId(null);
+      setEditingText("");
+    }
+  };
+
+  // -----------------------------
+  // Helper: regenerate EMOTI reply for a given user message
+  // -----------------------------
+  const regenerateReplyForUserMessage = async (userMessageId, newText) => {
+    if (!newText?.trim()) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: newText.trim(),
+          language,
+          personality,
+        }),
+      });
+
+      const now = Date.now();
+
+      if (!res.ok) {
+        setMessages((prev) => {
+          const userIdx = prev.findIndex((m) => m.id === userMessageId);
+          if (userIdx === -1) return prev;
+          const replyIdx = prev.findIndex(
+            (m, i) => i > userIdx && m.from === "emoti"
+          );
+
+          const errorReply = {
+            id: replyIdx !== -1 ? prev[replyIdx].id : now,
+            from: "emoti",
+            text: "I had trouble updating that reply, but I saw your change.",
+            time: now,
+            emotion: "stressed",
+          };
+
+          if (replyIdx !== -1) {
+            const copy = [...prev];
+            copy[replyIdx] = errorReply;
+            return copy;
+          }
+          return [...prev, errorReply];
+        });
+        return;
+      }
+
+      const data = await res.json();
+      const reply = data.reply || "Thank you for sharing. Tell me a bit more?";
+      const emotion = data.emotion || "okay";
+
+      // log mood for regenerated reply as well
+      await appendMoodEvent(user?.uid, emotion);
+
+      setMessages((prev) => {
+        const userIdx = prev.findIndex((m) => m.id === userMessageId);
+        if (userIdx === -1) return prev;
+
+        const replyIdx = prev.findIndex(
+          (m, i) => i > userIdx && m.from === "emoti"
+        );
+
+        const updatedReply = {
+          id: replyIdx !== -1 ? prev[replyIdx].id : now,
+          from: "emoti",
+          text: reply,
+          time: now,
+          emotion,
+        };
+
+        if (replyIdx !== -1) {
+          const copy = [...prev];
+          copy[replyIdx] = updatedReply;
+          return copy;
+        }
+
+        return [...prev, updatedReply];
+      });
+    } catch (err) {
+      const now = Date.now();
+      setMessages((prev) => {
+        const userIdx = prev.findIndex((m) => m.id === userMessageId);
+        if (userIdx === -1) return prev;
+        const replyIdx = prev.findIndex(
+          (m, i) => i > userIdx && m.from === "emoti"
+        );
+
+        const errorReply = {
+          id: replyIdx !== -1 ? prev[replyIdx].id : now,
+          from: "emoti",
+          text:
+            "Network error while updating that reply, but I did notice your edit.",
+          time: now,
+          emotion: "stressed",
+        };
+
+        if (replyIdx !== -1) {
+          const copy = [...prev];
+          copy[replyIdx] = errorReply;
+          return copy;
+        }
+        return [...prev, errorReply];
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -391,6 +506,90 @@ export default function PremiumChat() {
       sendMessage();
     }
   }
+
+  // -----------------------------
+  // EDIT / DELETE MESSAGE (same behaviour as normal chat)
+  // -----------------------------
+  const handleStartEdit = (msg) => {
+    if (msg.from !== "user" || loading) return;
+    setEditingId(msg.id);
+    setEditingText(msg.text);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingText("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    const trimmed = editingText.trim();
+    if (!trimmed) {
+      await handleDelete(editingId);
+      return;
+    }
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === editingId ? { ...m, text: trimmed, edited: true } : m
+      )
+    );
+    const editedId = editingId;
+    setEditingId(null);
+    setEditingText("");
+
+    await regenerateReplyForUserMessage(editedId, trimmed);
+  };
+
+  const handleDelete = async (id) => {
+    let deletedWasUserLast = false;
+    let previousUser = null;
+
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === id);
+      if (idx === -1) return prev;
+
+      const msg = prev[idx];
+      let next = prev;
+
+      if (msg.from === "user") {
+        // remove its EMOTI reply (first emoti after this message)
+        const replyIdx = prev.findIndex(
+          (m, i) => i > idx && m.from === "emoti"
+        );
+        next = prev.filter((_, i) => i !== idx && i !== replyIdx);
+
+        // was this the last user message?
+        const userIndices = prev
+          .map((m, i) => (m.from === "user" ? i : -1))
+          .filter((i) => i !== -1);
+
+        if (userIndices.length && userIndices[userIndices.length - 1] === idx) {
+          const secondLastIndex =
+            userIndices.length > 1 ? userIndices[userIndices.length - 2] : null;
+          if (secondLastIndex != null) {
+            const u = prev[secondLastIndex];
+            deletedWasUserLast = true;
+            previousUser = { id: u.id, text: u.text };
+          }
+        }
+      } else {
+        // deleting only EMOTI message
+        next = prev.filter((m) => m.id !== id);
+      }
+
+      return next;
+    });
+
+    if (editingId === id) {
+      setEditingId(null);
+      setEditingText("");
+    }
+
+    if (deletedWasUserLast && previousUser) {
+      await regenerateReplyForUserMessage(previousUser.id, previousUser.text);
+    }
+  };
 
   // -----------------------------
   // VOICE RECORDING
@@ -621,42 +820,98 @@ export default function PremiumChat() {
         ref={boxRef}
         className="flex-1 overflow-y-auto px-6 py-5 space-y-3 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[360px] md:min-h-[440px]"
       >
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${
-              msg.from === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            <div
-              className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap shadow-sm ${
-                msg.from === "user"
-                  ? "bg-amber-400/90 text-slate-950 rounded-br-sm"
-                  : "bg-slate-800/90 text-slate-50 rounded-bl-sm border border-amber-400/20"
-              }`}
-            >
-              {msg.from === "emoti" && (
-                <div className="text-[10px] uppercase tracking-wide text-amber-200 mb-1 flex items-center gap-1">
-                  <span>EMOTI</span>
-                  {msg.emotion && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-slate-900/70 border border-amber-300/40 lowercase">
-                      {msg.emotion}
-                    </span>
-                  )}
-                </div>
-              )}
+        {messages.map((msg) => {
+          const isUser = msg.from === "user";
+          const isEditing = editingId === msg.id;
 
-              <div>{msg.text}</div>
+          return (
+            <div
+              key={msg.id}
+              className={`flex ${isUser ? "justify-end" : "justify-start"} group`}
+            >
               <div
-                className={`text-[10px] mt-1 ${
-                  msg.from === "user" ? "text-slate-900/70" : "text-slate-400"
+                className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap shadow-sm ${
+                  isUser
+                    ? "bg-amber-400/90 text-slate-950 rounded-br-sm"
+                    : "bg-slate-800/90 text-slate-50 rounded-bl-sm border border-amber-400/20"
                 }`}
               >
-                {formatTime(msg.time)}
+                {msg.from === "emoti" && (
+                  <div className="text-[10px] uppercase tracking-wide text-amber-200 mb-1 flex items-center gap-1">
+                    <span>EMOTI</span>
+                    {msg.emotion && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-slate-900/70 border border-amber-300/40 lowercase">
+                        {msg.emotion}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* content / editor */}
+                {isEditing ? (
+                  <div className="flex flex-col gap-1">
+                    <textarea
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      rows={2}
+                      className="w-full text-xs bg-slate-900/80 border border-amber-300/40 rounded-lg px-2 py-1 text-slate-100"
+                    />
+                    <div className="flex justify-end gap-2 text-[10px] mt-1">
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveEdit}
+                        className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-medium"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>{msg.text}</div>
+                )}
+
+                {/* time + edited + actions */}
+                {!isEditing && (
+                  <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
+                    <div
+                      className={`flex items-center gap-1 ${
+                        isUser ? "text-slate-900/70" : "text-slate-400"
+                      }`}
+                    >
+                      <span>{formatTime(msg.time)}</span>
+                      {msg.edited && (
+                        <span className="italic opacity-70">· edited</span>
+                      )}
+                    </div>
+
+                    {isUser && (
+                      <div className="flex items-center gap-2 text-slate-700 group-hover:text-slate-900/80">
+                        <button
+                          onClick={() => handleStartEdit(msg)}
+                          className="hover:text-emerald-700"
+                        >
+                          Edit
+                        </button>
+                        <span className="w-[1px] h-3 bg-slate-500/70" />
+                        <button
+                          onClick={() => handleDelete(msg.id)}
+                          className="hover:text-rose-700"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {loading && (
           <div className="flex justify-start mt-1">

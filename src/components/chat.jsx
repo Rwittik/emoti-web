@@ -1,4 +1,4 @@
-// src/components/PremiumChat.jsx
+// src/components/chat.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { db } from "../firebase";
@@ -11,13 +11,13 @@ function formatTime(ts) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-// default welcome message for premium
+// Default welcome message
 function getInitialMessages() {
   return [
     {
       id: 1,
       from: "emoti",
-      text: "Hi — I'm EMOTI Premium. What’s on your heart tonight?",
+      text: "Hi — I'm EMOTI. How are you feeling today?",
       time: Date.now(),
       emotion: "okay",
     },
@@ -26,72 +26,29 @@ function getInitialMessages() {
 
 // localStorage key helper
 function getStorageKey(uid) {
-  return `emoti_premium_sessions_${uid}`;
+  return `emoti_chat_${uid}`;
 }
 
-// localStorage key for mood events (used by MoodDashboard)
-function getMoodKey(uid) {
-  return `emoti_mood_events_${uid}`;
-}
+export default function Chat() {
+  const { user, isPremium } = useAuth();
 
-// save one mood point (called whenever EMOTI replies with an emotion)
-async function appendMoodEvent(uid, emotion) {
-  if (!uid || !emotion) return;
-
-  const key = getMoodKey(uid);
-  let updated = [];
-
-  try {
-    const raw = window.localStorage.getItem(key);
-    const existing = raw ? JSON.parse(raw) : [];
-
-    updated = [
-      ...existing,
-      {
-        ts: Date.now(), // timestamp
-        emotion, // e.g. "low", "okay", "high", "stressed"
-      },
-    ].slice(-500); // keep last 500 events only
-
-    window.localStorage.setItem(key, JSON.stringify(updated));
-  } catch (err) {
-    console.error("Failed to append mood event in localStorage", err);
-  }
-
-  // 🔁 also sync to Firestore so all devices see the same mood data
-  try {
-    const userRef = doc(db, "users", uid);
-    await setDoc(
-      userRef,
-      { moodEvents: updated },
-      { merge: true } // don’t overwrite other fields
-    );
-  } catch (err) {
-    console.error("Failed to sync moodEvents to Firestore", err);
-  }
-}
-
-export default function PremiumChat() {
-  const { user } = useAuth();
-
-  const [sessions, setSessions] = useState([]); // [{id, title, createdAt, messages}]
-  const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState(getInitialMessages);
-  const [titleInput, setTitleInput] = useState("");
-
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState("Hindi");
   const [personality, setPersonality] = useState("Friend");
   const [loading, setLoading] = useState(false);
 
+  // Voice states
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
 
-  const boxRef = useRef(null);
-
-  // 🔹 edit/delete state (same behaviour as normal chat)
+  // Edit / delete helpers
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
+
+  const boxRef = useRef(null);
+
+  const canUseVoice = !!user && isPremium; // only premium & logged in
 
   // -----------------------------
   // Auto scroll chat
@@ -103,219 +60,93 @@ export default function PremiumChat() {
   }, [messages]);
 
   // -----------------------------
-  // Load sessions for this user (Firestore → localStorage → default)
+  // Load messages for this user (Firestore → localStorage → default)
   // -----------------------------
   useEffect(() => {
     if (!user) {
-      // logged out → clear local state
-      setSessions([]);
-      setActiveSessionId(null);
       setMessages(getInitialMessages());
-      setTitleInput("");
       return;
     }
 
     const key = getStorageKey(user.uid);
 
-    async function loadSessions() {
+    async function loadMessages() {
       try {
-        // 1) try Firestore
+        let messagesToUse = [];
+
+        // 1) Try Firestore
         const userRef = doc(db, "users", user.uid);
         const snap = await getDoc(userRef);
-        let sessionsFromCloud = [];
 
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.premiumSessions)) {
-            sessionsFromCloud = data.premiumSessions;
+          if (Array.isArray(data.chatMessages)) {
+            messagesToUse = data.chatMessages;
           }
         }
 
-        // 2) fall back to localStorage if Firestore empty
-        let sessionsToUse = sessionsFromCloud;
-        if (!sessionsToUse.length) {
-          const raw = window.localStorage.getItem(key);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) sessionsToUse = parsed;
+        // 2) Fallback to localStorage
+        if (!messagesToUse.length) {
+          try {
+            const stored = window.localStorage.getItem(key);
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                messagesToUse = parsed;
+              }
+            }
+          } catch (err) {
+            console.error("Chat: failed to read from localStorage", err);
           }
         }
 
-        // 3) if still nothing, create first session
-        if (!sessionsToUse.length) {
-          const firstSession = {
-            id: Date.now().toString(),
-            title: "First premium chat",
-            createdAt: Date.now(),
-            messages: getInitialMessages(),
-          };
-          sessionsToUse = [firstSession];
+        // 3) If still nothing, use default
+        if (!messagesToUse.length) {
+          messagesToUse = getInitialMessages();
         }
 
-        const lastSession = sessionsToUse[sessionsToUse.length - 1];
-
-        setSessions(sessionsToUse);
-        setActiveSessionId(lastSession.id);
-        setMessages(lastSession.messages || getInitialMessages());
-        setTitleInput(lastSession.title || "");
+        setMessages(messagesToUse);
       } catch (err) {
-        console.error("Failed to load premium sessions:", err);
-        const firstSession = {
-          id: Date.now().toString(),
-          title: "Premium chat",
-          createdAt: Date.now(),
-          messages: getInitialMessages(),
-        };
-        setSessions([firstSession]);
-        setActiveSessionId(firstSession.id);
-        setMessages(firstSession.messages);
-        setTitleInput(firstSession.title);
+        console.error("Chat: failed to load from Firestore", err);
+        // final fallback
+        setMessages(getInitialMessages());
       }
     }
 
-    loadSessions();
+    loadMessages();
   }, [user]);
 
   // -----------------------------
-  // Persist sessions whenever they change
+  // Persist messages whenever they change (Firestore + localStorage cache)
   // -----------------------------
   useEffect(() => {
     if (!user) return;
 
     const key = getStorageKey(user.uid);
 
-    // localStorage cache
+    // localStorage cache (best effort)
     try {
-      window.localStorage.setItem(key, JSON.stringify(sessions));
+      window.localStorage.setItem(key, JSON.stringify(messages));
     } catch (err) {
-      console.error("Failed to save premium sessions to localStorage:", err);
+      console.error("Chat: failed to save to localStorage", err);
     }
 
-    // Firestore sync
+    // Firestore sync (do not await here; fire-and-forget)
     async function saveToCloud() {
       try {
         const userRef = doc(db, "users", user.uid);
         await setDoc(
           userRef,
-          { premiumSessions: sessions },
-          { merge: true }
+          { chatMessages: messages },
+          { merge: true } // do not overwrite other fields
         );
       } catch (err) {
-        console.error("Failed to sync premium sessions to Firestore:", err);
+        console.error("Chat: failed to sync messages to Firestore", err);
       }
     }
 
     saveToCloud();
-  }, [sessions, user]);
-
-  // -----------------------------
-  // Keep active session in sync with messages
-  // -----------------------------
-  useEffect(() => {
-    if (!user || !activeSessionId) return;
-
-    setSessions((prev) =>
-      prev.map((s) => (s.id === activeSessionId ? { ...s, messages } : s))
-    );
-  }, [messages, user, activeSessionId]);
-
-  // -----------------------------
-  // Keep title input in sync with active session
-  // -----------------------------
-  useEffect(() => {
-    const cur = sessions.find((s) => s.id === activeSessionId);
-    setTitleInput(cur?.title || "");
-  }, [sessions, activeSessionId]);
-
-  // -----------------------------
-  // Create a new chat session
-  // -----------------------------
-  const startNewChat = () => {
-    const baseMessages = getInitialMessages();
-    const id = Date.now().toString();
-
-    const newSession = {
-      id,
-      title: `Chat ${sessions.length + 1}`,
-      createdAt: Date.now(),
-      messages: baseMessages,
-    };
-
-    setSessions((prev) => [...prev, newSession]);
-    setActiveSessionId(id);
-    setMessages(baseMessages);
-    setTitleInput(newSession.title);
-  };
-
-  // -----------------------------
-  // Switch between previous chats
-  // -----------------------------
-  const switchSession = (sessionId) => {
-    setActiveSessionId(sessionId);
-    const session = sessions.find((s) => s.id === sessionId);
-    setMessages(session?.messages || getInitialMessages());
-    setTitleInput(session?.title || "");
-    setEditingId(null);
-    setEditingText("");
-  };
-
-  // -----------------------------
-  // Rename current conversation
-  // -----------------------------
-  const handleTitleChange = (value) => {
-    setTitleInput(value);
-    if (!activeSessionId) return;
-
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === activeSessionId
-          ? { ...s, title: value.trim() || "Untitled chat" }
-          : s
-      )
-    );
-  };
-
-  // -----------------------------
-  // Delete current conversation
-  // -----------------------------
-  const deleteCurrentSession = () => {
-    if (!activeSessionId) return;
-
-    let nextActive = null;
-    let nextMessages = getInitialMessages();
-
-    setSessions((prev) => {
-      if (prev.length <= 1) {
-        const newSession = {
-          id: Date.now().toString(),
-          title: "New premium chat",
-          createdAt: Date.now(),
-          messages: getInitialMessages(),
-        };
-        nextActive = newSession;
-        nextMessages = newSession.messages;
-        return [newSession];
-      }
-
-      const idx = prev.findIndex((s) => s.id === activeSessionId);
-      const filtered = prev.filter((s) => s.id !== activeSessionId);
-
-      const chosen = filtered[Math.min(idx, filtered.length - 1)];
-      nextActive = chosen;
-      nextMessages = chosen.messages || getInitialMessages();
-
-      return filtered;
-    });
-
-    // apply new active + messages after sessions updated
-    if (nextActive) {
-      setActiveSessionId(nextActive.id);
-      setMessages(nextMessages);
-      setTitleInput(nextActive.title || "");
-      setEditingId(null);
-      setEditingText("");
-    }
-  };
+  }, [messages, user]);
 
   // -----------------------------
   // Helper: regenerate EMOTI reply for a given user message
@@ -338,6 +169,7 @@ export default function PremiumChat() {
       const now = Date.now();
 
       if (!res.ok) {
+        // fallback error reply
         setMessages((prev) => {
           const userIdx = prev.findIndex((m) => m.id === userMessageId);
           if (userIdx === -1) return prev;
@@ -364,11 +196,8 @@ export default function PremiumChat() {
       }
 
       const data = await res.json();
-      const reply = data.reply || "Thank you for sharing. Tell me a bit more?";
+      const reply = data.reply || "Thank you for sharing. Tell me more.";
       const emotion = data.emotion || "okay";
-
-      // log mood for regenerated reply as well
-      await appendMoodEvent(user?.uid, emotion);
 
       setMessages((prev) => {
         const userIdx = prev.findIndex((m) => m.id === userMessageId);
@@ -392,6 +221,7 @@ export default function PremiumChat() {
           return copy;
         }
 
+        // if no reply existed, append a new one
         return [...prev, updatedReply];
       });
     } catch (err) {
@@ -406,8 +236,7 @@ export default function PremiumChat() {
         const errorReply = {
           id: replyIdx !== -1 ? prev[replyIdx].id : now,
           from: "emoti",
-          text:
-            "Network error while updating that reply, but I did notice your edit.",
+          text: "Network error while updating that reply, but I did notice your edit.",
           time: now,
           emotion: "stressed",
         };
@@ -460,7 +289,7 @@ export default function PremiumChat() {
           {
             id: now + 1,
             from: "emoti",
-            text: "Premium server is busy — please try again.",
+            text: "Server unavailable — please try again.",
             time: Date.now(),
             emotion: "stressed",
           },
@@ -469,10 +298,8 @@ export default function PremiumChat() {
       }
 
       const data = await res.json();
-      const reply = data.reply || "Thank you for sharing. Tell me a bit more?";
+      const reply = data.reply || "Thank you for sharing. Tell me more.";
       const emotion = data.emotion || "okay";
-
-      await appendMoodEvent(user?.uid, emotion);
 
       setMessages((m) => [
         ...m,
@@ -508,10 +335,10 @@ export default function PremiumChat() {
   }
 
   // -----------------------------
-  // EDIT / DELETE MESSAGE (same behaviour as normal chat)
+  // EDIT / DELETE MESSAGE
   // -----------------------------
   const handleStartEdit = (msg) => {
-    if (msg.from !== "user" || loading) return;
+    if (msg.from !== "user" || loading) return; // only edit own messages, not while loading
     setEditingId(msg.id);
     setEditingText(msg.text);
   };
@@ -525,10 +352,12 @@ export default function PremiumChat() {
     if (!editingId) return;
     const trimmed = editingText.trim();
     if (!trimmed) {
+      // empty after edit = delete
       await handleDelete(editingId);
       return;
     }
 
+    // update user message text
     setMessages((prev) =>
       prev.map((m) =>
         m.id === editingId ? { ...m, text: trimmed, edited: true } : m
@@ -538,6 +367,7 @@ export default function PremiumChat() {
     setEditingId(null);
     setEditingText("");
 
+    // regenerate EMOTI reply for this user message
     await regenerateReplyForUserMessage(editedId, trimmed);
   };
 
@@ -559,7 +389,7 @@ export default function PremiumChat() {
         );
         next = prev.filter((_, i) => i !== idx && i !== replyIdx);
 
-        // was this the last user message?
+        // determine if this was the last user message
         const userIndices = prev
           .map((m, i) => (m.from === "user" ? i : -1))
           .filter((i) => i !== -1);
@@ -574,7 +404,7 @@ export default function PremiumChat() {
           }
         }
       } else {
-        // deleting only EMOTI message
+        // deleting EMOTI message alone
         next = prev.filter((m) => m.id !== id);
       }
 
@@ -586,15 +416,18 @@ export default function PremiumChat() {
       setEditingText("");
     }
 
+    // After deleting the last user turn, regenerate reply for the new last user
     if (deletedWasUserLast && previousUser) {
       await regenerateReplyForUserMessage(previousUser.id, previousUser.text);
     }
   };
 
   // -----------------------------
-  // VOICE RECORDING
+  // VOICE RECORDING START (premium only)
   // -----------------------------
   const startRecording = async () => {
+    if (!canUseVoice || recording) return;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -627,23 +460,19 @@ export default function PremiumChat() {
             time: now,
           };
 
-          const emotion = data.emotion || "okay"; // make sure backend returns this
-
           const emotiMsg = {
             id: now + 1,
             from: "emoti",
             text: data.reply_text,
             time: Date.now(),
-            emotion,
           };
-
-          // log this emotion for the MoodDashboard
-          await appendMoodEvent(user?.uid, emotion);
 
           setMessages((m) => [...m, userMsg, emotiMsg]);
 
           if (data.audio) {
-            const audio = new Audio("data:audio/mp3;base64," + data.audio);
+            const audio = new Audio(
+              "data:audio/mp3;base64," + data.audio
+            );
             audio.play();
           }
         } catch (err) {
@@ -668,6 +497,7 @@ export default function PremiumChat() {
     }
   };
 
+  // VOICE RECORDING STOP
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
@@ -676,149 +506,80 @@ export default function PremiumChat() {
   };
 
   // -----------------------------
-  // Small info for header session label
-  // -----------------------------
-  const activeIndex = sessions.findIndex((s) => s.id === activeSessionId);
-  const sessionLabel =
-    activeIndex >= 0
-      ? `Session ${activeIndex + 1} of ${sessions.length}`
-      : sessions.length > 0
-      ? `${sessions.length} saved chats`
-      : "1 saved chat";
-
-  // -----------------------------
   // UI RENDER
   // -----------------------------
   return (
-    <div className="w-full max-w-4xl mx-auto bg-gradient-to-b from-slate-950/90 via-slate-900/95 to-slate-950/90 rounded-[2rem] border border-amber-400/50 shadow-[0_0_50px_rgba(250,204,21,0.25)] flex flex-col overflow-hidden">
+    <div className="w-full max-w-3xl bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 rounded-2xl shadow-[0_0_40px_rgba(15,23,42,0.8)] border border-slate-800 flex flex-col overflow-hidden">
       {/* HEADER */}
-      <header className="flex flex-col gap-4 px-6 py-4 border-b border-amber-400/30 bg-slate-950/95">
-        {/* top row: title + language/mode */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <header className="flex flex-col gap-2 sm:flex-row sm:gap-0 sm:items-center sm:justify-between px-4 py-3 border-b border-slate-800 bg-slate-950/95">
+        <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 via-fuchsia-500 to-sky-400 flex items-center justify-center text-slate-950 font-bold text-lg shadow-lg">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#A78BFA] via-sky-400 to-emerald-400 flex items-center justify-center text-slate-950 font-bold text-lg shadow-lg">
               🙂
             </div>
             <div>
-              <h2 className="text-sm font-semibold flex items-center gap-2">
-                EMOTI Premium
-                <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/50 text-[10px] text-amber-200">
-                  Priority space
-                </span>
-              </h2>
+              <h2 className="text-sm font-semibold">EMOTI</h2>
               <p className="text-[11px] text-slate-400">
-                A softer, deeper room just for you. Take your time.
+                Anonymous emotional companion
               </p>
             </div>
           </div>
 
-          {/* language + personality selection */}
-          <div className="flex flex-col items-start md:items-end gap-1">
-            <div className="flex gap-2">
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="border border-amber-400/40 bg-slate-950/90 text-[11px] rounded-full px-3 py-1 text-slate-100 shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
-              >
-                <option>Hindi</option>
-                <option>Odia</option>
-                <option>Bengali</option>
-                <option>Tamil</option>
-                <option>Telugu</option>
-                <option>Marathi</option>
-                <option>English</option>
-              </select>
+          {!user && (
+            <p className="text-[10px] text-amber-300 mt-0.5">
+              You&apos;re in guest mode. Chats are not saved to your account and
+              may reset. Sign in from the top bar to keep them.
+            </p>
+          )}
 
-              <select
-                value={personality}
-                onChange={(e) => setPersonality(e.target.value)}
-                className="border border-amber-400/40 bg-slate-950/90 text-[11px] rounded-full px-3 py-1 text-slate-100 shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
-              >
-                <option>Friend</option>
-                <option>Sister</option>
-                <option>Brother</option>
-                <option>Mentor</option>
-                <option>Soft Romantic</option>
-              </select>
-            </div>
-            <span className="text-[10px] text-slate-500">
-              Switch language & tone anytime. EMOTI will adapt.
-            </span>
-          </div>
+          {user && !isPremium && (
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Free mode · Your chat is saved to your EMOTI account and syncs
+              across devices. Voice notes are part of EMOTI Premium.
+            </p>
+          )}
+
+          {user && isPremium && (
+            <p className="text-[10px] text-emerald-300 mt-0.5">
+              Premium active · Voice notes and deeper tools are unlocked.
+            </p>
+          )}
         </div>
 
-        {/* session controls: previous chats + new chat + rename + delete */}
-        <div className="rounded-2xl border border-amber-400/15 bg-slate-950/80 px-4 py-3 shadow-inner/30 shadow-[0_0_25px_rgba(15,23,42,0.8)] text-[11px]">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(250,204,21,0.8)]" />
-                <span className="font-medium text-slate-100">
-                  Conversation space
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-500">{sessionLabel}</span>
-            </div>
+        {/* LANGUAGE + PERSONALITY */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:justify-end">
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="border border-slate-700 bg-slate-900/90 text-[11px] rounded-full px-3 py-1 text-slate-100"
+          >
+            <option>Hindi</option>
+            <option>Odia</option>
+            <option>Bengali</option>
+            <option>Tamil</option>
+            <option>Telugu</option>
+            <option>Marathi</option>
+            <option>English</option>
+          </select>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">Conversation:</span>
-                <select
-                  value={activeSessionId || ""}
-                  onChange={(e) => switchSession(e.target.value)}
-                  className="border border-amber-400/40 bg-slate-950/90 rounded-full px-3 py-1 text-[11px] text-slate-100 shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-300"
-                >
-                  {sessions.map((s, index) => (
-                    <option key={s.id} value={s.id}>
-                      {s.title || `Chat ${index + 1}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2 justify-end">
-                <button
-                  onClick={startNewChat}
-                  className="px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 hover:from-amber-300 hover:via-amber-200 hover:to-amber-300 text-slate-950 text-[11px] font-semibold shadow-md"
-                >
-                  + New premium chat
-                </button>
-                <button
-                  onClick={deleteCurrentSession}
-                  className="px-3 py-1.5 rounded-full border border-rose-400/60 text-rose-200 hover:bg-rose-500/10 text-[11px]"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* rename field */}
-          <div className="flex flex-col md:flex-row md:items-center gap-2">
-            <div className="flex items-center gap-2 md:min-w-[90px]">
-              <span className="text-slate-400">Rename:</span>
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <input
-                type="text"
-                value={titleInput}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                placeholder="Conversation title"
-                className="bg-slate-900/80 border border-amber-400/30 rounded-full px-3 py-1 text-[11px] text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-300"
-              />
-              <span className="text-[10px] text-slate-500">
-                Only you can see these titles. Use them to mark special nights
-                or themes.
-              </span>
-            </div>
-          </div>
+          <select
+            value={personality}
+            onChange={(e) => setPersonality(e.target.value)}
+            className="border border-slate-700 bg-slate-900/90 text-[11px] rounded-full px-3 py-1 text-slate-100"
+          >
+            <option>Friend</option>
+            <option>Sister</option>
+            <option>Brother</option>
+            <option>Mentor</option>
+            <option>Soft Romantic</option>
+          </select>
         </div>
       </header>
 
       {/* CHAT MESSAGES */}
       <main
         ref={boxRef}
-        className="flex-1 overflow-y-auto px-6 py-5 space-y-3 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[360px] md:min-h-[440px]"
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 min-h-[260px] sm:min-h-[280px] md:min-h-[320px]"
       >
         {messages.map((msg) => {
           const isUser = msg.from === "user";
@@ -827,45 +588,48 @@ export default function PremiumChat() {
           return (
             <div
               key={msg.id}
-              className={`flex ${isUser ? "justify-end" : "justify-start"} group`}
+              className={`flex ${
+                isUser ? "justify-end" : "justify-start"
+              } group`}
             >
               <div
-                className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap shadow-sm ${
+                className={`max-w-[80%] px-3 py-2.5 rounded-2xl text-sm whitespace-pre-wrap shadow-sm relative ${
                   isUser
-                    ? "bg-amber-400/90 text-slate-950 rounded-br-sm"
-                    : "bg-slate-800/90 text-slate-50 rounded-bl-sm border border-amber-400/20"
+                    ? "bg-sky-500/15 text-slate-50 rounded-br-sm border border-sky-500/40"
+                    : "bg-slate-800/95 text-slate-50 rounded-bl-sm border border-slate-700/80"
                 }`}
               >
+                {/* EMOTI label */}
                 {msg.from === "emoti" && (
-                  <div className="text-[10px] uppercase tracking-wide text-amber-200 mb-1 flex items-center gap-1">
+                  <div className="text-[10px] uppercase tracking-wide text-sky-300 mb-1 flex items-center gap-1">
                     <span>EMOTI</span>
                     {msg.emotion && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-slate-900/70 border border-amber-300/40 lowercase">
+                      <span className="px-1.5 py-0.5 rounded-full bg-slate-900/70 border border-sky-400/50 lowercase">
                         {msg.emotion}
                       </span>
                     )}
                   </div>
                 )}
 
-                {/* content / editor */}
+                {/* Message content or editor */}
                 {isEditing ? (
                   <div className="flex flex-col gap-1">
                     <textarea
                       value={editingText}
                       onChange={(e) => setEditingText(e.target.value)}
                       rows={2}
-                      className="w-full text-xs bg-slate-900/80 border border-amber-300/40 rounded-lg px-2 py-1 text-slate-100"
+                      className="w-full text-xs bg-slate-900/80 border border-slate-600 rounded-lg px-2 py-1 text-slate-100"
                     />
                     <div className="flex justify-end gap-2 text-[10px] mt-1">
                       <button
                         onClick={handleCancelEdit}
-                        className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600"
+                        className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-600"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleSaveEdit}
-                        className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-medium"
+                        className="px-2 py-0.5 rounded-full bg-emerald-500/90 text-slate-950 font-medium"
                       >
                         Save
                       </button>
@@ -875,32 +639,30 @@ export default function PremiumChat() {
                   <div>{msg.text}</div>
                 )}
 
-                {/* time + edited + actions */}
+                {/* Meta row: time + edited + actions */}
                 {!isEditing && (
-                  <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
-                    <div
-                      className={`flex items-center gap-1 ${
-                        isUser ? "text-slate-900/70" : "text-slate-400"
-                      }`}
-                    >
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1">
                       <span>{formatTime(msg.time)}</span>
                       {msg.edited && (
-                        <span className="italic opacity-70">· edited</span>
+                        <span className="text-[9px] italic text-slate-500">
+                          · edited
+                        </span>
                       )}
                     </div>
 
                     {isUser && (
-                      <div className="flex items-center gap-2 text-slate-700 group-hover:text-slate-900/80">
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleStartEdit(msg)}
-                          className="hover:text-emerald-700"
+                          className="hover:text-emerald-300"
                         >
                           Edit
                         </button>
-                        <span className="w-[1px] h-3 bg-slate-500/70" />
+                        <span className="w-[1px] h-3 bg-slate-600" />
                         <button
                           onClick={() => handleDelete(msg.id)}
-                          className="hover:text-rose-700"
+                          className="hover:text-rose-300"
                         >
                           Delete
                         </button>
@@ -915,7 +677,7 @@ export default function PremiumChat() {
 
         {loading && (
           <div className="flex justify-start mt-1">
-            <div className="bg-slate-800/90 border border-amber-400/20 px-3 py-2 rounded-2xl">
+            <div className="bg-slate-800/90 border border-slate-700 px-3 py-2 rounded-2xl">
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:-0.2s]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:-0.1s]" />
@@ -927,38 +689,52 @@ export default function PremiumChat() {
       </main>
 
       {/* INPUT + VOICE */}
-      <footer className="border-t border-amber-400/30 bg-slate-950/95 px-6 py-3">
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              rows={1}
-              placeholder="Write from your heart…"
-              className="flex-1 resize-none border border-slate-700 bg-slate-900/90 rounded-2xl px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-            />
+      <footer className="border-t border-slate-800 bg-slate-950/95 px-3 py-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKey}
+            rows={1}
+            placeholder="Write something…"
+            className="flex-1 resize-none border border-slate-700 bg-slate-950 rounded-2xl px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+          />
 
-            <button
-              onClick={sendMessage}
-              disabled={loading}
-              className="bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-slate-950 px-5 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap"
-            >
-              {loading ? "…" : "Send"}
-            </button>
-          </div>
+          <button
+            onClick={sendMessage}
+            disabled={loading}
+            className="bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white px-4 py-2 rounded-2xl text-sm w-full sm:w-auto shadow-sm shadow-sky-500/40"
+          >
+            {loading ? "…" : "Send"}
+          </button>
 
-          <div className="flex items-center justify-between text-[11px] text-slate-500">
+          {canUseVoice ? (
             <button
               onClick={recording ? stopRecording : startRecording}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                recording ? "bg-rose-600 text-white" : "bg-purple-600 text-white"
+              className={`flex items-center justify-center gap-1 px-4 py-2 rounded-2xl text-sm text-white w-full sm:w-auto shadow-sm ${
+                recording
+                  ? "bg-rose-600 shadow-rose-500/40"
+                  : "bg-purple-600 shadow-purple-500/40 hover:bg-purple-500"
               }`}
             >
-              {recording ? "Stop premium voice 🎙" : "Premium voice 🎤"}
+              {recording ? "Stop" : "Voice"}
+              <span role="img" aria-label="mic">
+                🎤
+              </span>
             </button>
-            <span>Premium space · do not share private info.</span>
-          </div>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="flex items-center justify-center gap-1 px-4 py-2 rounded-2xl text-sm border border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed w-full sm:w-auto"
+              title="Voice notes are available in EMOTI Premium"
+            >
+              <span role="img" aria-label="lock">
+                🔒
+              </span>
+              <span>Voice</span>
+            </button>
+          )}
         </div>
       </footer>
     </div>
