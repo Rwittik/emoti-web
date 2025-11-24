@@ -1,6 +1,8 @@
 // src/components/MoodDashboard.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 /**
  * Fallback sample weekly mood data.
@@ -139,7 +141,7 @@ function moodLabel(mood) {
   return "Heavy / Low";
 }
 
-// same key that PremiumChat uses
+// same key that PremiumChat uses (for local fallback)
 function getMoodKey(uid) {
   return `emoti_mood_events_${uid}`;
 }
@@ -296,39 +298,79 @@ export default function MoodDashboard({ onBack }) {
   const { user } = useAuth();
   const [selectedWeekId, setSelectedWeekId] = useState("this-week");
 
-  // NEW: keep moodEvents in state so we can reload from localStorage
+  // moodEvents now loaded from Firestore (with localStorage fallback)
   const [moodEvents, setMoodEvents] = useState([]);
 
-  // NEW: load / reload mood events whenever the dashboard mounts (and when user changes)
+  // load / reload mood events whenever the dashboard mounts (and when user changes)
   useEffect(() => {
     if (!user) {
       setMoodEvents([]);
       return;
     }
-    try {
-      const raw = window.localStorage.getItem(getMoodKey(user.uid));
-      const parsed = raw ? JSON.parse(raw) : [];
-      setMoodEvents(Array.isArray(parsed) ? parsed : []);
-    } catch (err) {
-      console.error("Failed to read mood events", err);
-      setMoodEvents([]);
+
+    let cancelled = false;
+
+    async function loadMoodEvents() {
+      try {
+        let events = [];
+
+        // 1) Try Firestore
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.moodEvents)) {
+            events = data.moodEvents;
+          }
+        }
+
+        // 2) Fallback to localStorage if Firestore empty
+        if (!events.length) {
+          try {
+            const raw = window.localStorage.getItem(getMoodKey(user.uid));
+            const parsed = raw ? JSON.parse(raw) : [];
+            events = Array.isArray(parsed) ? parsed : [];
+          } catch (err) {
+            console.error("Failed to read mood events from localStorage", err);
+          }
+        }
+
+        if (!cancelled) {
+          setMoodEvents(events);
+        }
+      } catch (err) {
+        console.error("Failed to load mood events from Firestore", err);
+
+        // On error, still try localStorage
+        try {
+          const raw = window.localStorage.getItem(getMoodKey(user.uid));
+          const parsed = raw ? JSON.parse(raw) : [];
+          if (!cancelled) {
+            setMoodEvents(Array.isArray(parsed) ? parsed : []);
+          }
+        } catch (err2) {
+          console.error("Failed to read mood events from localStorage", err2);
+          if (!cancelled) {
+            setMoodEvents([]);
+          }
+        }
+      }
     }
+
+    loadMoodEvents();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   // build "this week" + "last week" views, using real data if present
   const weeks = useMemo(() => {
     const [sampleThisWeek, sampleLastWeek] = SAMPLE_WEEKS;
 
-    const realThisWeek = buildWeekFromEvents(
-      moodEvents,
-      0,
-      sampleThisWeek
-    );
-    const realLastWeek = buildWeekFromEvents(
-      moodEvents,
-      -1,
-      sampleLastWeek
-    );
+    const realThisWeek = buildWeekFromEvents(moodEvents, 0, sampleThisWeek);
+    const realLastWeek = buildWeekFromEvents(moodEvents, -1, sampleLastWeek);
 
     return [realThisWeek, realLastWeek];
   }, [moodEvents]);

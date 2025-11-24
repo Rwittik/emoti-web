@@ -1,6 +1,8 @@
 // src/components/PremiumChat.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { db } from "../firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 const API_URL = "/api/chat";
 
@@ -33,15 +35,17 @@ function getMoodKey(uid) {
 }
 
 // save one mood point (called whenever EMOTI replies with an emotion)
-function appendMoodEvent(uid, emotion) {
+async function appendMoodEvent(uid, emotion) {
   if (!uid || !emotion) return;
 
   const key = getMoodKey(uid);
+  let updated = [];
+
   try {
     const raw = window.localStorage.getItem(key);
     const existing = raw ? JSON.parse(raw) : [];
 
-    const updated = [
+    updated = [
       ...existing,
       {
         ts: Date.now(), // timestamp
@@ -51,7 +55,19 @@ function appendMoodEvent(uid, emotion) {
 
     window.localStorage.setItem(key, JSON.stringify(updated));
   } catch (err) {
-    console.error("Failed to append mood event", err);
+    console.error("Failed to append mood event in localStorage", err);
+  }
+
+  // 🔁 also sync to Firestore so all devices see the same mood data
+  try {
+    const userRef = doc(db, "users", uid);
+    await setDoc(
+      userRef,
+      { moodEvents: updated },
+      { merge: true } // don’t overwrite other fields
+    );
+  } catch (err) {
+    console.error("Failed to sync moodEvents to Firestore", err);
   }
 }
 
@@ -83,7 +99,7 @@ export default function PremiumChat() {
   }, [messages]);
 
   // -----------------------------
-  // Load sessions for this user
+  // Load sessions for this user (Firestore → localStorage → default)
   // -----------------------------
   useEffect(() => {
     if (!user) {
@@ -97,12 +113,52 @@ export default function PremiumChat() {
 
     const key = getStorageKey(user.uid);
 
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) {
+    async function loadSessions() {
+      try {
+        // 1) try Firestore
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+        let sessionsFromCloud = [];
+
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.premiumSessions)) {
+            sessionsFromCloud = data.premiumSessions;
+          }
+        }
+
+        // 2) fall back to localStorage if Firestore empty
+        let sessionsToUse = sessionsFromCloud;
+        if (!sessionsToUse.length) {
+          const raw = window.localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) sessionsToUse = parsed;
+          }
+        }
+
+        // 3) if still nothing, create first session
+        if (!sessionsToUse.length) {
+          const firstSession = {
+            id: Date.now().toString(),
+            title: "First premium chat",
+            createdAt: Date.now(),
+            messages: getInitialMessages(),
+          };
+          sessionsToUse = [firstSession];
+        }
+
+        const lastSession = sessionsToUse[sessionsToUse.length - 1];
+
+        setSessions(sessionsToUse);
+        setActiveSessionId(lastSession.id);
+        setMessages(lastSession.messages || getInitialMessages());
+        setTitleInput(lastSession.title || "");
+      } catch (err) {
+        console.error("Failed to load premium sessions:", err);
         const firstSession = {
           id: Date.now().toString(),
-          title: "First premium chat",
+          title: "Premium chat",
           createdAt: Date.now(),
           messages: getInitialMessages(),
         };
@@ -110,44 +166,10 @@ export default function PremiumChat() {
         setActiveSessionId(firstSession.id);
         setMessages(firstSession.messages);
         setTitleInput(firstSession.title);
-        window.localStorage.setItem(key, JSON.stringify([firstSession]));
-        return;
       }
-
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        const firstSession = {
-          id: Date.now().toString(),
-          title: "First premium chat",
-          createdAt: Date.now(),
-          messages: getInitialMessages(),
-        };
-        setSessions([firstSession]);
-        setActiveSessionId(firstSession.id);
-        setMessages(firstSession.messages);
-        setTitleInput(firstSession.title);
-        window.localStorage.setItem(key, JSON.stringify([firstSession]));
-        return;
-      }
-
-      const lastSession = parsed[parsed.length - 1];
-      setSessions(parsed);
-      setActiveSessionId(lastSession.id);
-      setMessages(lastSession.messages || getInitialMessages());
-      setTitleInput(lastSession.title || "");
-    } catch (err) {
-      console.error("Failed to load premium sessions:", err);
-      const firstSession = {
-        id: Date.now().toString(),
-        title: "Premium chat",
-        createdAt: Date.now(),
-        messages: getInitialMessages(),
-      };
-      setSessions([firstSession]);
-      setActiveSessionId(firstSession.id);
-      setMessages(firstSession.messages);
-      setTitleInput(firstSession.title);
     }
+
+    loadSessions();
   }, [user]);
 
   // -----------------------------
@@ -155,12 +177,31 @@ export default function PremiumChat() {
   // -----------------------------
   useEffect(() => {
     if (!user) return;
+
     const key = getStorageKey(user.uid);
+
+    // localStorage cache
     try {
       window.localStorage.setItem(key, JSON.stringify(sessions));
     } catch (err) {
-      console.error("Failed to save premium sessions:", err);
+      console.error("Failed to save premium sessions to localStorage:", err);
     }
+
+    // Firestore sync
+    async function saveToCloud() {
+      try {
+        const userRef = doc(db, "users", user.uid);
+        await setDoc(
+          userRef,
+          { premiumSessions: sessions },
+          { merge: true }
+        );
+      } catch (err) {
+        console.error("Failed to sync premium sessions to Firestore:", err);
+      }
+    }
+
+    saveToCloud();
   }, [sessions, user]);
 
   // -----------------------------
@@ -316,7 +357,7 @@ export default function PremiumChat() {
       const reply = data.reply || "Thank you for sharing. Tell me a bit more?";
       const emotion = data.emotion || "okay";
 
-      appendMoodEvent(user?.uid, emotion);
+      await appendMoodEvent(user?.uid, emotion);
 
       setMessages((m) => [
         ...m,
@@ -397,8 +438,8 @@ export default function PremiumChat() {
             emotion,
           };
 
-          // NEW: log this emotion for the MoodDashboard
-          appendMoodEvent(user?.uid, emotion);
+          // log this emotion for the MoodDashboard
+          await appendMoodEvent(user?.uid, emotion);
 
           setMessages((m) => [...m, userMsg, emotiMsg]);
 
@@ -618,9 +659,7 @@ export default function PremiumChat() {
             <button
               onClick={recording ? stopRecording : startRecording}
               className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                recording
-                  ? "bg-rose-600 text-white"
-                  : "bg-purple-600 text-white"
+                recording ? "bg-rose-600 text-white" : "bg-purple-600 text-white"
               }`}
             >
               {recording ? "Stop premium voice 🎙" : "Premium voice 🎤"}
