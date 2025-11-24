@@ -149,6 +149,111 @@ export default function Chat() {
   }, [messages, user]);
 
   // -----------------------------
+  // Helper: regenerate EMOTI reply for a given user message
+  // -----------------------------
+  const regenerateReplyForUserMessage = async (userMessageId, newText) => {
+    if (!newText?.trim()) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: newText.trim(),
+          language,
+          personality,
+        }),
+      });
+
+      const now = Date.now();
+
+      if (!res.ok) {
+        // fallback error reply
+        setMessages((prev) => {
+          const userIdx = prev.findIndex((m) => m.id === userMessageId);
+          if (userIdx === -1) return prev;
+          const replyIdx = prev.findIndex(
+            (m, i) => i > userIdx && m.from === "emoti"
+          );
+
+          const errorReply = {
+            id: replyIdx !== -1 ? prev[replyIdx].id : now,
+            from: "emoti",
+            text: "I had trouble updating that reply, but I saw your change.",
+            time: now,
+            emotion: "stressed",
+          };
+
+          if (replyIdx !== -1) {
+            const copy = [...prev];
+            copy[replyIdx] = errorReply;
+            return copy;
+          }
+          return [...prev, errorReply];
+        });
+        return;
+      }
+
+      const data = await res.json();
+      const reply = data.reply || "Thank you for sharing. Tell me more.";
+      const emotion = data.emotion || "okay";
+
+      setMessages((prev) => {
+        const userIdx = prev.findIndex((m) => m.id === userMessageId);
+        if (userIdx === -1) return prev;
+
+        const replyIdx = prev.findIndex(
+          (m, i) => i > userIdx && m.from === "emoti"
+        );
+
+        const updatedReply = {
+          id: replyIdx !== -1 ? prev[replyIdx].id : now,
+          from: "emoti",
+          text: reply,
+          time: now,
+          emotion,
+        };
+
+        if (replyIdx !== -1) {
+          const copy = [...prev];
+          copy[replyIdx] = updatedReply;
+          return copy;
+        }
+
+        // if no reply existed, append a new one
+        return [...prev, updatedReply];
+      });
+    } catch (err) {
+      const now = Date.now();
+      setMessages((prev) => {
+        const userIdx = prev.findIndex((m) => m.id === userMessageId);
+        if (userIdx === -1) return prev;
+        const replyIdx = prev.findIndex(
+          (m, i) => i > userIdx && m.from === "emoti"
+        );
+
+        const errorReply = {
+          id: replyIdx !== -1 ? prev[replyIdx].id : now,
+          from: "emoti",
+          text: "Network error while updating that reply, but I did notice your edit.",
+          time: now,
+          emotion: "stressed",
+        };
+
+        if (replyIdx !== -1) {
+          const copy = [...prev];
+          copy[replyIdx] = errorReply;
+          return copy;
+        }
+        return [...prev, errorReply];
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // -----------------------------
   // TEXT CHAT SEND
   // -----------------------------
   async function sendMessage() {
@@ -233,7 +338,7 @@ export default function Chat() {
   // EDIT / DELETE MESSAGE
   // -----------------------------
   const handleStartEdit = (msg) => {
-    if (msg.from !== "user") return; // only edit own messages
+    if (msg.from !== "user" || loading) return; // only edit own messages, not while loading
     setEditingId(msg.id);
     setEditingText(msg.text);
   };
@@ -243,28 +348,77 @@ export default function Chat() {
     setEditingText("");
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingId) return;
     const trimmed = editingText.trim();
     if (!trimmed) {
       // empty after edit = delete
-      handleDelete(editingId);
+      await handleDelete(editingId);
       return;
     }
+
+    // update user message text
     setMessages((prev) =>
       prev.map((m) =>
         m.id === editingId ? { ...m, text: trimmed, edited: true } : m
       )
     );
+    const editedId = editingId;
     setEditingId(null);
     setEditingText("");
+
+    // regenerate EMOTI reply for this user message
+    await regenerateReplyForUserMessage(editedId, trimmed);
   };
 
-  const handleDelete = (id) => {
-    setMessages((prev) => prev.filter((m) => m.id !== id));
+  const handleDelete = async (id) => {
+    let deletedWasUserLast = false;
+    let previousUser = null;
+
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === id);
+      if (idx === -1) return prev;
+
+      const msg = prev[idx];
+      let next = prev;
+
+      if (msg.from === "user") {
+        // remove its EMOTI reply (first emoti after this message)
+        const replyIdx = prev.findIndex(
+          (m, i) => i > idx && m.from === "emoti"
+        );
+        next = prev.filter((_, i) => i !== idx && i !== replyIdx);
+
+        // determine if this was the last user message
+        const userIndices = prev
+          .map((m, i) => (m.from === "user" ? i : -1))
+          .filter((i) => i !== -1);
+
+        if (userIndices.length && userIndices[userIndices.length - 1] === idx) {
+          const secondLastIndex =
+            userIndices.length > 1 ? userIndices[userIndices.length - 2] : null;
+          if (secondLastIndex != null) {
+            const u = prev[secondLastIndex];
+            deletedWasUserLast = true;
+            previousUser = { id: u.id, text: u.text };
+          }
+        }
+      } else {
+        // deleting EMOTI message alone
+        next = prev.filter((m) => m.id !== id);
+      }
+
+      return next;
+    });
+
     if (editingId === id) {
       setEditingId(null);
       setEditingText("");
+    }
+
+    // After deleting the last user turn, regenerate reply for the new last user
+    if (deletedWasUserLast && previousUser) {
+      await regenerateReplyForUserMessage(previousUser.id, previousUser.text);
     }
   };
 
