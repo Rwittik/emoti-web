@@ -1,5 +1,10 @@
 // src/components/PremiumHomepage.jsx
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { db } from "../firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+
+// ---------- helpers shared with MoodDashboard / EmotionImages ----------
 
 // helper copied from MoodDashboard for consistent colors
 function moodColor(mood) {
@@ -14,6 +19,328 @@ function moodColor(mood) {
   }
 }
 
+// localStorage key used by PremiumChat / MoodDashboard
+function getMoodKey(uid) {
+  return `emoti_mood_events_${uid}`;
+}
+
+// convert raw emotion strings into 3 buckets
+function normalizeMood(rawEmotion) {
+  if (!rawEmotion) return "okay";
+  const e = String(rawEmotion).toLowerCase();
+
+  if (
+    [
+      "anxious",
+      "anxiety",
+      "stressed",
+      "stress",
+      "sad",
+      "depressed",
+      "low",
+      "heavy",
+      "angry",
+      "lonely",
+      "overwhelmed",
+      "tired",
+    ].some((k) => e.includes(k))
+  ) {
+    return "low";
+  }
+
+  if (
+    [
+      "high",
+      "positive",
+      "good",
+      "better",
+      "light",
+      "relieved",
+      "hopeful",
+      "grateful",
+      "calm",
+      "happy",
+      "peaceful",
+    ].some((k) => e.includes(k))
+  ) {
+    return "high";
+  }
+
+  return "okay";
+}
+
+// numeric score for chart + averages
+function moodScore(mood) {
+  switch (mood) {
+    case "high":
+      return 4.5;
+    case "low":
+      return 2;
+    case "okay":
+    default:
+      return 3;
+  }
+}
+
+// get Monday of the week with an offset (0 = current)
+function getWeekStart(date, weekOffset = 0) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sun, 1 = Mon, ...
+  const diffToMonday = (day + 6) % 7;
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - diffToMonday + weekOffset * 7);
+  return d;
+}
+
+// build a Mon–Sun week view from mood events (same as MoodDashboard)
+function buildWeekFromEvents(events, weekOffset, fallbackWeek) {
+  if (!events || events.length === 0) return fallbackWeek;
+
+  const weekStart = getWeekStart(new Date(), weekOffset);
+  const ids = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const days = ids.map((id, index) => {
+    const dayStart = new Date(weekStart);
+    dayStart.setDate(weekStart.getDate() + index);
+
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayStart.getDate() + 1);
+
+    const dayEvents = events.filter((e) => {
+      const t = new Date(e.ts);
+      return t >= dayStart && t < dayEnd;
+    });
+
+    if (dayEvents.length === 0) {
+      return {
+        id,
+        label: labels[index],
+        mood: "okay",
+        score: 0,
+        note: "No mood logged this day.",
+      };
+    }
+
+    const moodCounts = { high: 0, okay: 0, low: 0 };
+    let scoreSum = 0;
+
+    dayEvents.forEach((ev) => {
+      const mood = normalizeMood(ev.emotion);
+      moodCounts[mood] = (moodCounts[mood] || 0) + 1;
+      scoreSum += moodScore(mood);
+    });
+
+    let mood = "okay";
+    if (moodCounts.high >= moodCounts.okay && moodCounts.high >= moodCounts.low)
+      mood = "high";
+    else if (
+      moodCounts.low >= moodCounts.okay &&
+      moodCounts.low >= moodCounts.high
+    )
+      mood = "low";
+
+    const avgScore = scoreSum / dayEvents.length;
+    const roundedScore = Math.round(avgScore); // 1–5
+
+    let note;
+    if (mood === "high") {
+      note = "Felt comparatively lighter today.";
+    } else if (mood === "low") {
+      note = "Felt heavier or more emotionally loaded today.";
+    } else {
+      note = "Mixed / neutral day overall.";
+    }
+
+    return {
+      id,
+      label: labels[index],
+      mood,
+      score: roundedScore,
+      note,
+    };
+  });
+
+  return {
+    id: fallbackWeek.id,
+    label: fallbackWeek.label,
+    range: fallbackWeek.range,
+    days,
+  };
+}
+
+// summarise a week's pattern for the Gentle recap sentence
+function buildWeekSummary(week) {
+  if (!week || !week.days) {
+    return {
+      phrase: "a mix of okay and heavy",
+    };
+  }
+
+  const daysWithData = week.days.filter((d) => d.score > 0);
+  if (!daysWithData.length) {
+    return {
+      phrase: "a soft mix of days — data will build up as you chat",
+    };
+  }
+
+  const counts = { high: 0, okay: 0, low: 0 };
+  daysWithData.forEach((d) => {
+    counts[d.mood] = (counts[d.mood] || 0) + 1;
+  });
+
+  let phrase = "a mix of okay and heavy";
+
+  if (counts.high >= counts.okay && counts.high >= counts.low) {
+    phrase = "mostly on the lighter / positive side";
+  } else if (counts.low >= counts.okay && counts.low >= counts.high) {
+    phrase = "mostly on the heavier side";
+  } else {
+    // mix case
+    if (counts.low && counts.high) {
+      phrase = "quite up and down";
+    } else if (counts.low) {
+      phrase = "a mix of okay and heavy";
+    } else {
+      phrase = "a mix of okay and lighter days";
+    }
+  }
+
+  return { phrase };
+}
+
+// --- EmotionImages-style helpers for AI image preview ---
+
+function mapEmotionToMood(emotion) {
+  if (!emotion) return "mixed";
+  const e = String(emotion).toLowerCase();
+
+  if (["calm", "relaxed", "grounded", "peaceful", "relief"].includes(e))
+    return "calm";
+
+  if (
+    ["hopeful", "optimistic", "motivated", "encouraged", "excited"].includes(e)
+  )
+    return "hopeful";
+
+  if (
+    [
+      "sad",
+      "low",
+      "down",
+      "depressed",
+      "stressed",
+      "anxious",
+      "overwhelmed",
+      "lonely",
+      "angry",
+      "upset",
+      "heavy",
+    ].includes(e)
+  )
+    return "heavy";
+
+  if (["okay", "neutral", "mixed", "tired", "meh"].includes(e)) return "mixed";
+
+  return "mixed";
+}
+
+function getPresetForMood(mood, index = 0) {
+  switch (mood) {
+    case "calm":
+      return {
+        title: index === 0 ? "Quiet pocket of calm" : "Soft, grounded evening",
+        tone: "Soft, peaceful, slightly reflective",
+        description:
+          "Gentle blue tones with soft light – like a slower, calmer moment after emotional noise.",
+      };
+    case "hopeful":
+      return {
+        title: index === 0 ? "Small window of hope" : "Quiet hopeful shift",
+        tone: "Gentle but bright, like a small light in a dark room",
+        description:
+          "Deep navy background with a warm golden glow, symbolising tiny but real bits of hope showing up.",
+      };
+    case "heavy":
+      return {
+        title: index === 0 ? "Heavy cloud day" : "Overthinking storm",
+        tone: "Dense, slightly chaotic, heavy in the chest",
+        description:
+          "Dark clouds with thin streaks of light trying to break through – mirroring stress, worry, and emotional weight.",
+      };
+    case "mixed":
+    default:
+      return {
+        title: index === 0 ? "Mixed sky, mixed day" : "Up & down waves",
+        tone: "Half bright, half cloudy – up and down",
+        description:
+          "One side clear and bright, the other cloudy and muted, for days that felt both okay and heavy at the same time.",
+      };
+  }
+}
+
+// same logic as EmotionImages: build 1 card per recent day (we only need titles)
+function buildImagesFromEvents(events) {
+  if (!events || events.length === 0) return [];
+
+  const sorted = [...events].sort((a, b) => b.ts - a.ts);
+
+  const byDay = new Map();
+  for (const ev of sorted) {
+    if (!ev.ts || !ev.emotion) continue;
+    const d = new Date(ev.ts);
+    const key = d.toISOString().slice(0, 10);
+    const mood = mapEmotionToMood(ev.emotion);
+
+    if (!byDay.has(key)) {
+      byDay.set(key, {
+        date: d,
+        counts: { calm: 0, hopeful: 0, heavy: 0, mixed: 0 },
+      });
+    }
+    byDay.get(key).counts[mood] += 1;
+  }
+
+  const dayEntries = Array.from(byDay.values())
+    .sort((a, b) => b.date - a.date)
+    .slice(0, 6);
+
+  const results = dayEntries.map((entry, idx) => {
+    const { date, counts } = entry;
+    let dominant = "mixed";
+    let best = -1;
+    for (const m of ["calm", "hopeful", "heavy", "mixed"]) {
+      if (counts[m] > best) {
+        best = counts[m];
+        dominant = m;
+      }
+    }
+
+    const { title, tone, description } = getPresetForMood(dominant, idx);
+
+    const createdAt = date.toLocaleString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    return {
+      id: `auto-${date.toISOString()}`,
+      title,
+      mood: dominant,
+      tone,
+      description,
+      createdAt,
+    };
+  });
+
+  return results;
+}
+
+// ---------- preview fallback data (UI stays same if no data) ----------
+
 // preview data aligned with MoodDashboard "This week"
 const MOOD_PREVIEW_DAYS = [
   { id: "mon", label: "Mon", mood: "low", score: 2 },
@@ -25,6 +352,13 @@ const MOOD_PREVIEW_DAYS = [
   { id: "sun", label: "Sun", mood: "okay", score: 3 },
 ];
 
+const SAMPLE_WEEK = {
+  id: "this-week",
+  label: "This week",
+  range: "Mon – Sun",
+  days: MOOD_PREVIEW_DAYS,
+};
+
 export default function PremiumHomepage({
   onOpenPremiumChat = () => {},
   onOpenMoodDashboard = () => {},
@@ -34,9 +368,90 @@ export default function PremiumHomepage({
   onOpenCalmCompanion = () => {},
   user,
 }) {
+  const { user: authUser } = useAuth();
+  const effectiveUser = user || authUser;
+
+  // state used only for data, not UI structure
+  const [weekPreview, setWeekPreview] = useState(SAMPLE_WEEK);
+  const [recapSummary, setRecapSummary] = useState(
+    buildWeekSummary(SAMPLE_WEEK)
+  );
+  const [imagePreviewTitles, setImagePreviewTitles] = useState({
+    latest: "Latest reflection",
+    previous: "Previous reflection",
+  });
+
+  // listen to moodEvents in real time and update preview states
+  useEffect(() => {
+    if (!effectiveUser) {
+      setWeekPreview(SAMPLE_WEEK);
+      setRecapSummary(buildWeekSummary(SAMPLE_WEEK));
+      setImagePreviewTitles({
+        latest: "Latest reflection",
+        previous: "Previous reflection",
+      });
+      return;
+    }
+
+    const userRef = doc(db, "users", effectiveUser.uid);
+
+    const unsubscribe = onSnapshot(
+      userRef,
+      (snap) => {
+        let events = [];
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.moodEvents)) {
+            events = data.moodEvents;
+          }
+        }
+
+        // fallback to localStorage if Firestore has no events yet
+        if (!events.length && typeof window !== "undefined") {
+          try {
+            const raw = window.localStorage.getItem(
+              getMoodKey(effectiveUser.uid)
+            );
+            const parsed = raw ? JSON.parse(raw) : [];
+            if (Array.isArray(parsed)) {
+              events = parsed;
+            }
+          } catch (err) {
+            console.error("PremiumHomepage: failed to read moodEvents", err);
+          }
+        }
+
+        // build week preview for mini graph + recap
+        const week = buildWeekFromEvents(events, 0, SAMPLE_WEEK);
+        setWeekPreview(week);
+        setRecapSummary(buildWeekSummary(week));
+
+        // build AI image preview titles
+        const images = buildImagesFromEvents(events);
+        if (images.length > 0) {
+          setImagePreviewTitles({
+            latest: images[0].title || "Latest reflection",
+            previous:
+              (images[1] && images[1].title) || "Previous reflection",
+          });
+        } else {
+          setImagePreviewTitles({
+            latest: "Latest reflection",
+            previous: "Previous reflection",
+          });
+        }
+      },
+      (err) => {
+        console.error("PremiumHomepage: moodEvents listener error", err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [effectiveUser]);
+
   const firstName =
-    user?.displayName?.split(" ")[0] ||
-    user?.email?.split("@")[0] ||
+    effectiveUser?.displayName?.split(" ")[0] ||
+    effectiveUser?.email?.split("@")[0] ||
     "Friend";
 
   return (
@@ -97,7 +512,7 @@ export default function PremiumHomepage({
               </div>
             </div>
 
-            {/* tiny “at a glance” stats */}
+            {/* tiny “at a glance” stats (still simple for now) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs w-full max-w-md">
               <div className="rounded-2xl bg-slate-950/70 backdrop-blur border border-amber-300/30 px-3 py-3 shadow-md shadow-amber-500/20">
                 <p className="text-[10px] text-amber-200/80 uppercase tracking-[0.16em] mb-1">
@@ -284,7 +699,7 @@ export default function PremiumHomepage({
       <section className="max-w-6xl mx-auto px-5 py-10 grid lg:grid-cols-2 gap-6 items-start">
         {/* LEFT COLUMN: Mood trend + recap card */}
         <div className="space-y-4">
-          {/* This week's mood trend preview */}
+          {/* This week's mood trend preview (now powered by weekPreview) */}
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl shadow-black/40">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
               <h3 className="text-lg font-semibold">
@@ -318,18 +733,23 @@ export default function PremiumHomepage({
 
               {/* mini bar graph similar to MoodDashboard */}
               <div className="flex-1 flex items-end gap-3">
-                {MOOD_PREVIEW_DAYS.map((day) => {
-                  const height = (day.score / 5) * 100;
+                {weekPreview.days.map((day) => {
+                  const height =
+                    day.score && day.score > 0 ? (day.score / 5) * 100 : 0;
                   return (
                     <div
                       key={day.id}
                       className="flex-1 flex flex-col items-center gap-1"
                     >
                       <div
-                        className={`w-full max-w-[18px] rounded-full ${moodColor(
-                          day.mood
-                        )} shadow-sm shadow-slate-900`}
-                        style={{ height: `${Math.max(height, 18)}%` }}
+                        className={`w-full max-w-[18px] rounded-full ${
+                          day.score && day.score > 0
+                            ? moodColor(day.mood)
+                            : "bg-slate-800/60 border border-slate-700"
+                        } shadow-sm shadow-slate-900`}
+                        style={{
+                          height: `${day.score ? Math.max(height, 18) : 6}%`,
+                        }}
                       />
                       <span className="text-[10px] text-slate-400">
                         {day.label}
@@ -346,7 +766,7 @@ export default function PremiumHomepage({
             </div>
           </div>
 
-          {/* Compact recap / nudge card */}
+          {/* Compact recap / nudge card (text driven by actual pattern) */}
           <div className="rounded-2xl bg-slate-900/85 border border-slate-800 p-5 shadow-xl shadow-black/40">
             <p className="text-[11px] uppercase tracking-[0.2em] text-amber-300/80 mb-2">
               Gentle recap
@@ -354,7 +774,7 @@ export default function PremiumHomepage({
             <p className="text-sm text-slate-200">
               This week felt{" "}
               <span className="font-semibold text-emerald-200">
-                a mix of okay and heavy
+                {recapSummary.phrase}
               </span>
               . You still showed up and shared how you feel — that matters more
               than having “perfect” days.
@@ -384,7 +804,7 @@ export default function PremiumHomepage({
 
         {/* RIGHT COLUMN: AI images + playlist + Calm Companion preview */}
         <div className="space-y-4">
-          {/* AI Reflection Images */}
+          {/* AI Reflection Images (titles now reflect latest/previus mood images) */}
           <div
             onClick={onOpenEmotionImages}
             className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl cursor-pointer hover:border-violet-300/70 hover:bg-slate-900 transition-all duration-300"
@@ -399,16 +819,16 @@ export default function PremiumHomepage({
               {/* Preview tile 1 – latest image */}
               <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
                 <div className="absolute inset-0 bg-gradient-to-br from-sky-500/40 via-violet-500/30 to-slate-900 opacity-90" />
-                <span className="relative text-[11px] text-slate-100 font-medium">
-                  Latest reflection
+                <span className="relative text-[11px] text-slate-100 font-medium text-center px-2">
+                  {imagePreviewTitles.latest}
                 </span>
               </div>
 
               {/* Preview tile 2 – previous image */}
               <div className="relative rounded-xl h-24 border border-slate-700 overflow-hidden bg-slate-800/60 flex items-center justify-center">
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/35 via-teal-400/25 to-slate-900 opacity-80" />
-                <span className="relative text-[11px] text-slate-100 font-medium">
-                  Previous reflection
+                <span className="relative text-[11px] text-slate-100 font-medium text-center px-2">
+                  {imagePreviewTitles.previous}
                 </span>
               </div>
             </div>
@@ -422,7 +842,7 @@ export default function PremiumHomepage({
             </p>
           </div>
 
-          {/* Mini Emotion Playlist teaser */}
+          {/* Mini Emotion Playlist teaser (unchanged for now) */}
           <div
             onClick={onOpenEmotionPlaylist}
             className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-emerald-300/40 p-4 shadow-lg shadow-emerald-500/25 cursor-pointer hover:border-emerald-200 hover:shadow-emerald-400/30 transition-all duration-300"
@@ -464,7 +884,7 @@ export default function PremiumHomepage({
             </p>
           </div>
 
-          {/* Calm Companion preview */}
+          {/* Calm Companion preview (unchanged) */}
           <div
             onClick={onOpenCalmCompanion}
             className="rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-emerald-400/60 p-4 shadow-lg shadow-emerald-500/30 cursor-pointer hover:border-emerald-300 hover:bg-slate-900/95 transition-all duration-300"
@@ -505,7 +925,7 @@ export default function PremiumHomepage({
         </div>
       </section>
 
-      {/* -------- PREMIUM FEATURES LIST -------- */}
+      {/* -------- PREMIUM FEATURES LIST (unchanged) -------- */}
       <section className="max-w-6xl mx-auto px-5 py-8 md:py-10">
         <h2 className="text-xl font-semibold mb-4">Your premium tools</h2>
 
