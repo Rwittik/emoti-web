@@ -15,6 +15,7 @@ const SAMPLE_EMOTION_IMAGES = [
       "Soft blue and purple tones with gentle light – representing a calmer, slower evening after a heavy week.",
     tags: ["calm", "relief", "evening"],
     createdAt: "Sample · not yet personalised",
+    sourceLabel: "sample reflection",
   },
   {
     id: "heavy-1",
@@ -25,6 +26,7 @@ const SAMPLE_EMOTION_IMAGES = [
       "Dark clouds with thin lines of light trying to break through, visualising looping thoughts and mental noise.",
     tags: ["overthinking", "anxiety", "foggy"],
     createdAt: "Sample · not yet personalised",
+    sourceLabel: "sample reflection",
   },
   {
     id: "hope-1",
@@ -35,6 +37,7 @@ const SAMPLE_EMOTION_IMAGES = [
       "Deep navy background with one warm golden window, symbolising a tiny but real sense of hope.",
     tags: ["hope", "resilience", "tiny-win"],
     createdAt: "Sample · not yet personalised",
+    sourceLabel: "sample reflection",
   },
   {
     id: "mixed-1",
@@ -45,6 +48,7 @@ const SAMPLE_EMOTION_IMAGES = [
       "Split sky: one side clear and blue, the other cloudy and muted, capturing a day that felt both okay and heavy.",
     tags: ["mixed", "up-and-down", "processing"],
     createdAt: "Sample · not yet personalised",
+    sourceLabel: "sample reflection",
   },
 ];
 
@@ -177,6 +181,15 @@ function buildImagesFromEvents(events) {
       minute: "2-digit",
     });
 
+    // simple “intensity” score – more heavy/mixed = more intense
+    const totalHeavyish = counts.heavy + counts.mixed;
+    let sourceLabel = "after everyday check-ins";
+    if (totalHeavyish >= 3) {
+      sourceLabel = "after intense / heavy chats";
+    } else if (counts.hopeful >= 2) {
+      sourceLabel = "after hopeful / growing chats";
+    }
+
     return {
       id: `auto-${date.toISOString()}`,
       title,
@@ -185,6 +198,7 @@ function buildImagesFromEvents(events) {
       description,
       tags,
       createdAt,
+      sourceLabel,
     };
   });
 
@@ -472,9 +486,18 @@ export default function EmotionImages({ onBack }) {
                           </span>
                         ))}
                       </div>
-                      <span className="text-[10px] text-slate-500">
-                        {img.createdAt}
-                      </span>
+
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-[10px] text-emerald-300/90">
+                          Auto-generated{" "}
+                          {img.sourceLabel
+                            ? ` ${img.sourceLabel}`
+                            : "from your recent chats"}
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          {img.createdAt}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -521,9 +544,9 @@ export default function EmotionImages({ onBack }) {
             <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-4">
               <p className="text-[11px] text-slate-400 mb-1">Coming soon</p>
               <p className="text-slate-300">
-                In the future, EMOTI can auto-generate new images after intense
-                or important chats, so you&apos;ll slowly build a visual diary of
-                your emotional journey.
+                In the future, EMOTI can create richer, more detailed artwork
+                from especially intense or important chats, so you&apos;ll slowly
+                build a deeper visual diary of your emotional journey.
               </p>
             </div>
           </aside>
