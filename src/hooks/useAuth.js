@@ -36,7 +36,14 @@ function useProvideAuth() {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
 
-      if (firebaseUser) {
+      if (!firebaseUser) {
+        // logged out state
+        setProfile(null);
+        setLoadingAuth(false);
+        return;
+      }
+
+      try {
         // Firestore user profile reference
         const userRef = doc(db, "users", firebaseUser.uid);
         const snap = await getDoc(userRef);
@@ -55,22 +62,44 @@ function useProvideAuth() {
         } else {
           setProfile(snap.data());
         }
-      } else {
-        setProfile(null);
+      } catch (err) {
+        // This is where "client is offline" usually lands
+        if (err.code === "unavailable") {
+          console.warn(
+            "[EMOTI] Firestore looks offline while loading user profile. Using minimal profile."
+          );
+          // Fallback: keep a minimal profile so UI doesn't break
+          setProfile((prev) => prev || { email: firebaseUser.email });
+        } else {
+          console.error("[EMOTI] Error loading user profile:", err);
+        }
+      } finally {
+        setLoadingAuth(false);
       }
-
-      setLoadingAuth(false);
     });
 
     return () => unsub();
   }, []);
 
   const loginWithGoogle = async () => {
-    await signInWithPopup(auth, googleProvider);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      // Common: popup closed by user, blocked by browser, etc.
+      if (err.code === "auth/popup-closed-by-user") {
+        console.warn("[EMOTI] Google sign-in popup was closed by the user.");
+      } else {
+        console.error("[EMOTI] Google sign-in failed:", err);
+      }
+    }
   };
 
   const logout = async () => {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("[EMOTI] Logout failed:", err);
+    }
   };
 
   // -----------------------------
