@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { db } from "../firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore"; // added setDoc
 
 // ---------- helpers shared with MoodDashboard / EmotionImages ----------
 
@@ -359,6 +359,63 @@ const SAMPLE_WEEK = {
   days: MOOD_PREVIEW_DAYS,
 };
 
+// ---------- NEW: Mood selector / daily suggestion helpers ----------
+
+// small mapping for mood colors (hex for inline styles)
+const MOOD_META = {
+  happy: { label: "😄 Happy", color: "#10b981", bucket: "high" }, // emerald
+  sad: { label: "😔 Sad", color: "#ef4444", bucket: "low" }, // red
+  angry: { label: "😡 Angry", color: "#f97316", bucket: "low" }, // orange
+  tired: { label: "😵 Tired", color: "#6b7280", bucket: "okay" }, // gray
+  anxious: { label: "😰 Anxious", color: "#6366f1", bucket: "low" }, // indigo
+};
+
+// supportive response per mood (keeps it short & kind)
+const SUPPORTIVE_RESPONSES = {
+  happy: "That's wonderful — hold onto this little light. Would you like a short grounding or celebration prompt?",
+  sad: "I’m sorry you’re feeling down. Would you like a comforting prompt or a breathing reset?",
+  angry: "Anger is valid. Try a 1-minute grounding to let the intensity pass — I can guide you if you want.",
+  tired: "You sound exhausted. A short rest exercise or a 2-minute breathing break could help — want to try?",
+  anxious: "That tightness in your chest is important to notice. Want a gentle 3-step grounding routine now?",
+};
+
+// append mood event locally + sync to Firestore (used by mood selector)
+async function appendMoodEventLocalAndCloud(uid, emotion) {
+  if (!uid || !emotion) return;
+
+  const key = getMoodKey(uid);
+  let updated = [];
+
+  try {
+    const raw = typeof window !== "undefined" && window.localStorage.getItem(key);
+    const existing = raw ? JSON.parse(raw) : [];
+
+    updated = [
+      ...existing,
+      {
+        ts: Date.now(),
+        emotion,
+      },
+    ].slice(-500);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(key, JSON.stringify(updated));
+    }
+  } catch (err) {
+    console.error("Failed to append mood event in localStorage", err);
+  }
+
+  // also sync to Firestore
+  try {
+    const userRef = doc(db, "users", uid);
+    await setDoc(userRef, { moodEvents: updated }, { merge: true });
+  } catch (err) {
+    console.error("Failed to sync moodEvents to Firestore", err);
+  }
+}
+
+// ---------- component ----------
+
 export default function PremiumHomepage({
   onOpenPremiumChat = () => {},
   onOpenMoodDashboard = () => {},
@@ -380,6 +437,40 @@ export default function PremiumHomepage({
     latest: "Latest reflection",
     previous: "Previous reflection",
   });
+
+  // --- new: daily suggestion + mood selector states
+  const [dailySuggestion, setDailySuggestion] = useState("");
+  const [selectedMood, setSelectedMood] = useState(null); // one of 'happy','sad','angry','tired','anxious'
+  const [supportiveMessage, setSupportiveMessage] = useState("");
+  const [moodPulseAt, setMoodPulseAt] = useState(0); // used to re-run pulse animation
+
+  // small pool of friendly suggestions (feel free to expand)
+  const SUGGESTIONS = [
+    "🧘 “Take a deep breath… you’re doing great today.”",
+    "🌙 “Pause for a moment. Small steps tonight count.”",
+    "💧 “A 60-second stretch can ease tension — try it now.”",
+    "✍️ “Write down one thing that went okay today — it matters.”",
+    "☕ “Make a warm drink, and give yourself 5 calm minutes.”",
+    "🌤️ “Try noticing 3 things you can hear right now — grounding helps.”",
+  ];
+
+  // generate daily suggestion (once per mount or per user)
+  useEffect(() => {
+    if (!dailySuggestion) {
+      // pick deterministic-ish suggestion if user exists
+      if (effectiveUser && effectiveUser.uid) {
+        const idx = effectiveUser.uid
+          .split("")
+          .reduce((s, c) => s + c.charCodeAt(0), 0) % SUGGESTIONS.length;
+        setDailySuggestion(SUGGESTIONS[idx]);
+      } else {
+        setDailySuggestion(
+          SUGGESTIONS[Math.floor(Math.random() * SUGGESTIONS.length)]
+        );
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveUser]);
 
   // listen to moodEvents in real time and update preview states
   useEffect(() => {
@@ -409,9 +500,7 @@ export default function PremiumHomepage({
         // fallback to localStorage if Firestore has no events yet
         if (!events.length && typeof window !== "undefined") {
           try {
-            const raw = window.localStorage.getItem(
-              getMoodKey(effectiveUser.uid)
-            );
+            const raw = window.localStorage.getItem(getMoodKey(effectiveUser.uid));
             const parsed = raw ? JSON.parse(raw) : [];
             if (Array.isArray(parsed)) {
               events = parsed;
@@ -454,6 +543,40 @@ export default function PremiumHomepage({
     effectiveUser?.email?.split("@")[0] ||
     "Friend";
 
+  // ---------- mood selector action ----------
+  const handleMoodTap = async (key) => {
+    if (!MOOD_META[key]) return;
+
+    // immediate UI feedback
+    setSelectedMood(key);
+    setSupportiveMessage(SUPPORTIVE_RESPONSES[key] || "I'm here with you.");
+    setMoodPulseAt(Date.now());
+
+    // record event locally + cloud
+    try {
+      await appendMoodEventLocalAndCloud(
+        effectiveUser?.uid || "anonymous",
+        MOOD_META[key].label
+      );
+    } catch (err) {
+      console.error("Failed to append mood event:", err);
+    }
+
+    // auto-clear supportive message after some time (optional)
+    setTimeout(() => {
+      setSupportiveMessage("");
+      // do not clear selectedMood immediately — keep glow for a short while
+      setTimeout(() => setSelectedMood(null), 1500);
+    }, 4200);
+  };
+
+  // regenerate daily suggestion
+  const regenerateSuggestion = () => {
+    setDailySuggestion(
+      SUGGESTIONS[Math.floor(Math.random() * SUGGESTIONS.length)]
+    );
+  };
+
   return (
     <div className="relative bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-50 min-h-screen pb-20">
       {/* soft background orbs */}
@@ -494,6 +617,32 @@ export default function PremiumHomepage({
                 visual reflections, calm audio, and a private room where you can
                 drop everything you&apos;re carrying.
               </p>
+
+              {/* Daily Suggestion (NEW) */}
+              <div className="mt-3 max-w-md">
+                <div className="rounded-2xl bg-slate-900/85 border border-slate-800 px-4 py-3 flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-sky-400 flex items-center justify-center text-slate-900 font-semibold shadow-md">
+                      🕊️
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-start gap-2">
+                      <p className="text-sm text-slate-100">{dailySuggestion}</p>
+                      <button
+                        onClick={regenerateSuggestion}
+                        className="ml-auto text-[11px] px-2 py-1 rounded-full bg-slate-800/70 border border-slate-700 hover:bg-slate-800/90"
+                        aria-label="Regenerate suggestion"
+                      >
+                        ↻
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      A small wellness nudge to try tonight.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               {/* Go to Premium Chat */}
               <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -583,9 +732,7 @@ export default function PremiumHomepage({
                 ⭐
               </span>
               Premium chat
-              <span className="opacity-0 group-hover:opacity-100 transition-all">
-                →
-              </span>
+              <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
             </p>
             <p className="text-[11px] text-slate-400 mt-1">
               Go to your priority room with faster, deeper responses.
@@ -603,9 +750,7 @@ export default function PremiumHomepage({
               📊
             </span>
             Mood dashboard
-            <span className="opacity-0 group-hover:opacity-100 transition-all">
-              →
-            </span>
+            <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
             See weekly highs & lows, patterns, and your emotional timeline.
@@ -622,9 +767,7 @@ export default function PremiumHomepage({
               🎨
             </span>
             AI emotion images
-            <span className="opacity-0 group-hover:opacity-100 transition-all">
-              →
-            </span>
+            <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
             View abstract visuals of how your recent chats feel.
@@ -641,9 +784,7 @@ export default function PremiumHomepage({
               🎧
             </span>
             Emotion playlist
-            <span className="opacity-0 group-hover:opacity-100 transition-all">
-              →
-            </span>
+            <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
             Mood-based music in your language to wind down after chats.
@@ -663,9 +804,7 @@ export default function PremiumHomepage({
             <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-pink-500/10 border border-pink-300/60 text-pink-100">
               NEW
             </span>
-            <span className="opacity-0 group-hover:opacity-100 transition-all">
-              →
-            </span>
+            <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
             Write freely and let EMOTI reflect your feelings back to you.
@@ -685,12 +824,10 @@ export default function PremiumHomepage({
             <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/10 border border-emerald-300/60 text-emerald-100">
               NEW
             </span>
-            <span className="opacity-0 group-hover:opacity-100 transition-all">
-              →
-            </span>
+            <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
-            Guided breathing, grounding, affirmations, and soft sleep stories.
+            Guided breathing, affirmations, grounding, and soft sleep stories.
           </p>
         </div>
       </section>
@@ -702,9 +839,7 @@ export default function PremiumHomepage({
           {/* This week's mood trend preview (now powered by weekPreview) */}
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl shadow-black/40">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-              <h3 className="text-lg font-semibold">
-                This week&apos;s mood trend
-              </h3>
+              <h3 className="text-lg font-semibold">This week&apos;s mood trend</h3>
               <span className="text-[11px] px-2 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
                 Preview · tap mood dashboard for full view
               </span>
@@ -782,21 +917,86 @@ export default function PremiumHomepage({
             <div className="mt-3 grid sm:grid-cols-3 gap-3 text-[11px]">
               <div className="rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2">
                 <p className="text-slate-400 mb-1">Tiny win</p>
-                <p className="text-slate-100">
-                  You checked in even when your mood was low.
-                </p>
+                <p className="text-slate-100">You checked in even when your mood was low.</p>
               </div>
               <div className="rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2">
                 <p className="text-slate-400 mb-1">Tonight&apos;s nudge</p>
-                <p className="text-slate-100">
-                  Try writing 2–3 sentences in your journal before sleep.
-                </p>
+                <p className="text-slate-100">Try writing 2–3 sentences in your journal before sleep.</p>
               </div>
               <div className="rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2">
                 <p className="text-slate-400 mb-1">Quick tool</p>
-                <p className="text-slate-100">
-                  Use Calm Companion for a short anxiety reset session.
-                </p>
+                <p className="text-slate-100">Use Calm Companion for a short anxiety reset session.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* NEW: Mood Selector card (High impact, low effort) */}
+          <div
+            className="rounded-2xl bg-slate-900/85 border border-slate-800 p-5 shadow-xl shadow-black/40"
+            style={{
+              transition: "box-shadow 220ms ease, transform 220ms ease",
+              boxShadow: selectedMood
+                ? `0 18px 40px ${MOOD_META[selectedMood].color}22`
+                : undefined,
+              transform: selectedMood ? "translateY(-2px)" : undefined,
+            }}
+          >
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-amber-300/80">How are you feeling right now?</p>
+                <h4 className="text-sm font-semibold text-slate-50 mt-1">Tap a mood — EMOTI will respond kindly</h4>
+              </div>
+
+              <div className="text-[10px] text-slate-400">Quick mood check</div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {Object.keys(MOOD_META).map((k) => {
+                const meta = MOOD_META[k];
+                const active = selectedMood === k;
+                return (
+                  <button
+                    key={k}
+                    onClick={() => handleMoodTap(k)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-full border transition transform active:scale-95"
+                    style={{
+                      borderColor: active ? meta.color : "rgba(148,163,184,0.12)",
+                      background: active ? `${meta.color}12` : "transparent",
+                      boxShadow: active ? `0 8px 24px ${meta.color}22` : undefined,
+                    }}
+                    aria-pressed={active}
+                  >
+                    <span style={{ fontSize: 16 }}>{meta.label}</span>
+                  </button>
+                );
+              })}
+
+              {/* supportive response area */}
+              <div className="w-full mt-3">
+                <div
+                  className="rounded-xl px-4 py-3 bg-slate-950/80 border border-slate-800"
+                  style={{
+                    transition: "box-shadow 300ms ease, border-color 300ms ease",
+                    borderColor: selectedMood ? MOOD_META[selectedMood].color : undefined,
+                    boxShadow: selectedMood ? `0 10px 30px ${selectedMood ? MOOD_META[selectedMood].color + "22" : ""}` : undefined,
+                  }}
+                >
+                  {supportiveMessage ? (
+                    <div className="flex items-start gap-3">
+                      <div>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/6 text-white text-sm">
+                          🙂
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-100">{supportiveMessage}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">If you want, EMOTI can open a breathing exercise or a journaling prompt.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">Tap a mood above to get a short supportive reply. Your choice is private and saved to your mood history.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -857,9 +1057,7 @@ export default function PremiumHomepage({
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-1">
                   Based on your recent check-ins:{" "}
-                  <span className="text-emerald-200 font-medium">
-                    chill · a bit heavy · hopeful
-                  </span>
+                  <span className="text-emerald-200 font-medium">chill · a bit heavy · hopeful</span>
                 </p>
               </div>
               <div className="h-10 w-10 rounded-full bg-emerald-400 flex items-center justify-center text-slate-950 text-lg shadow-md shadow-emerald-500/40">
@@ -868,15 +1066,9 @@ export default function PremiumHomepage({
             </div>
 
             <div className="flex flex-wrap gap-1 text-[10px] text-slate-200 mb-2">
-              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
-                Chill · late night
-              </span>
-              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
-                Sad but comforting
-              </span>
-              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
-                Focus & study
-              </span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">Chill · late night</span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">Sad but comforting</span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">Focus & study</span>
             </div>
 
             <p className="text-[10px] text-slate-500">
@@ -891,12 +1083,8 @@ export default function PremiumHomepage({
           >
             <div className="flex items-center justify-between gap-3 mb-2">
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-emerald-300/80">
-                  Calm Companion
-                </p>
-                <h4 className="text-sm font-semibold text-slate-50">
-                  Soft voice support for heavy nights
-                </h4>
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-300/80">Calm Companion</p>
+                <h4 className="text-sm font-semibold text-slate-50">Soft voice support for heavy nights</h4>
                 <p className="text-[11px] text-slate-400 mt-1">
                   Guided breathing, gentle affirmations, grounding exercises,
                   and cozy sleep stories in a slow, soothing tone.
@@ -908,18 +1096,10 @@ export default function PremiumHomepage({
             </div>
 
             <div className="flex flex-wrap gap-1 text-[10px] text-slate-200">
-              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
-                Anxiety reset
-              </span>
-              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
-                Grounding exercise
-              </span>
-              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
-                Affirmations
-              </span>
-              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">
-                Sleep story
-              </span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">Anxiety reset</span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">Grounding exercise</span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">Affirmations</span>
+              <span className="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700">Sleep story</span>
             </div>
           </div>
         </div>
