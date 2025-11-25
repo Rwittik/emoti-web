@@ -12,7 +12,6 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 // Create context
 const AuthContext = createContext(null);
 
-// Provider wrapper (NO JSX here – uses React.createElement)
 export function AuthProvider({ children }) {
   const authValue = useProvideAuth();
   return React.createElement(
@@ -22,14 +21,13 @@ export function AuthProvider({ children }) {
   );
 }
 
-// Hook to use Auth anywhere
 export function useAuth() {
   return useContext(AuthContext);
 }
 
 function useProvideAuth() {
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null); // Firestore user data
+  const [profile, setProfile] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
@@ -37,41 +35,49 @@ function useProvideAuth() {
       setUser(firebaseUser);
 
       if (!firebaseUser) {
-        // logged out state
         setProfile(null);
         setLoadingAuth(false);
         return;
       }
 
       try {
-        // Firestore user profile reference
         const userRef = doc(db, "users", firebaseUser.uid);
         const snap = await getDoc(userRef);
 
         if (!snap.exists()) {
-          // First-time user → create document
+          // First-time user → give premium instantly
           const baseProfile = {
             email: firebaseUser.email,
             createdAt: Date.now(),
-            premium: false,
-            activePremium: false, // Razorpay / manual upgrade will flip this to true
+            premium: true,
+            activePremium: true,
           };
 
           await setDoc(userRef, baseProfile, { merge: true });
           setProfile(baseProfile);
         } else {
-          setProfile(snap.data());
+          const data = snap.data();
+
+          // If user exists but not premium → upgrade automatically
+          if (!data.activePremium) {
+            await setDoc(
+              userRef,
+              { activePremium: true, premium: true },
+              { merge: true }
+            );
+            data.activePremium = true;
+          }
+
+          setProfile(data);
         }
       } catch (err) {
-        // This is where "client is offline" usually lands
         if (err.code === "unavailable") {
           console.warn(
-            "[EMOTI] Firestore looks offline while loading user profile. Using minimal profile."
+            "[EMOTI] Firestore offline → using fallback minimal profile."
           );
-          // Fallback: keep a minimal profile so UI doesn't break
-          setProfile((prev) => prev || { email: firebaseUser.email });
+          setProfile((prev) => prev || { email: firebaseUser.email, activePremium: true });
         } else {
-          console.error("[EMOTI] Error loading user profile:", err);
+          console.error("[EMOTI] Error loading profile:", err);
         }
       } finally {
         setLoadingAuth(false);
@@ -85,9 +91,8 @@ function useProvideAuth() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      // Common: popup closed by user, blocked by browser, etc.
       if (err.code === "auth/popup-closed-by-user") {
-        console.warn("[EMOTI] Google sign-in popup was closed by the user.");
+        console.warn("[EMOTI] Google sign-in popup closed.");
       } else {
         console.error("[EMOTI] Google sign-in failed:", err);
       }
@@ -102,29 +107,20 @@ function useProvideAuth() {
     }
   };
 
-  // -----------------------------
   // PREMIUM LOGIC
-  // -----------------------------
-
-  // 1) Real premium flag from Firestore
   const firestorePremium = profile?.activePremium === true;
 
-  // 2) Hardcoded special emails that always have premium (for you, test accounts, etc.)
   const SPECIAL_PREMIUM_EMAILS = [
     "dashadhikary@gmail.com",
     "santmoumita100@gmail.com",
-    // add more here:
-    // "secondmail@gmail.com",
-    // "testaccount@example.com",
   ];
 
-  // normalize email to lowercase before checking
   const userEmail = user?.email ? user.email.toLowerCase() : null;
   const hasHardcodedPremium =
     !!userEmail && SPECIAL_PREMIUM_EMAILS.includes(userEmail);
 
-  // 3) Final premium flag used by the app
-  const isPremium = firestorePremium || hasHardcodedPremium;
+  // FINAL premium flag (everyone logged in gets premium)
+  const isPremium = true;
 
   return {
     user,
