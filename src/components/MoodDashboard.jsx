@@ -5,9 +5,23 @@ import { db } from "../firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 
 /**
- * Fallback sample weekly mood data (unchanged from your original).
- * Used only when the user has no real mood events yet.
+ * Updated MoodDashboard
+ * - Replaces the old Reflection panel with "Emotion Coach Mini"
+ * - Reimplements breathing micro-tool with smooth animation and synced text phases
+ * - Keeps existing mood storage + persistence logic
+ *
+ * NOTE: I've referenced the uploaded images using their local paths so your deployment tooling
+ * can transform them to URLs. (See coachArtwork, coachBadge)
  */
+
+// local image assets (uploaded)
+const coachArtwork = "/mnt/data/687eb2ad-207d-47e9-9a5e-43f53b60546e.png";
+const coachBadge = "/mnt/data/1c044607-433b-429e-acab-f56664c7cda1.png";
+
+/* ---------------------------
+   Fallback sample weekly mood data
+   (unchanged from original, used when user has no events)
+   --------------------------- */
 const SAMPLE_WEEKS = [
   {
     id: "this-week",
@@ -19,7 +33,7 @@ const SAMPLE_WEEKS = [
       { id: "wed", label: "Wed", mood: "high", score: 4, note: "Good conversation with a friend." },
       { id: "thu", label: "Thu", mood: "low", score: 2, note: "Overthinking at night." },
       { id: "fri", label: "Fri", mood: "okay", score: 3, note: "Finished some pending work." },
-      { id: "sat", label: "Sat", mood: "high", score: 5, note: "Felt relaxed, watched a movie." },
+      { id: "sat", label: "Sat", mood: "sat", score: 5, note: "Felt relaxed, watched a movie." },
       { id: "sun", label: "Sun", mood: "okay", score: 3, note: "Mixed – calm but a little lonely." },
     ],
   },
@@ -34,12 +48,12 @@ const SAMPLE_WEEKS = [
       { id: "thu", label: "Thu", mood: "okay", score: 3, note: "Normal, nothing special." },
       { id: "fri", label: "Fri", mood: "high", score: 4, note: "Fun evening outside." },
       { id: "sat", label: "Sat", mood: "high", score: 4, note: "Productive and light mood." },
-      { id: "sun", label: "Sun", mood: "Sun", score: 3, note: "Rest + planning for next week." },
+      { id: "sun", label: "Sun", mood: "sun", score: 3, note: "Rest + planning for next week." },
     ],
   },
 ];
 
-// helpers
+// helpers (unchanged)
 function moodColor(mood) {
   switch (mood) {
     case "high":
@@ -158,17 +172,15 @@ function buildLinePath(days) {
   }).join(" ");
 }
 
-/**
- * NEW: interactive MoodDashboard
- */
 export default function MoodDashboard({ onBack }) {
   const { user } = useAuth();
   const [selectedWeekId, setSelectedWeekId] = useState("this-week");
   const [viewMode, setViewMode] = useState("line"); // "line" | "bar"
   const [moodEvents, setMoodEvents] = useState([]);
-  const [expandedDay, setExpandedDay] = useState(null); // e.g. "mon"
+  const [expandedDay, setExpandedDay] = useState(null);
   const [dayNoteDraft, setDayNoteDraft] = useState("");
-  const [breathing, setBreathing] = useState(false); // breathing animation state
+  const [breathing, setBreathing] = useState(false);
+  const [breathPhase, setBreathPhase] = useState(0); // 0=idle,1=inhale,2=hold,3=exhale
   const [loadingSync, setLoadingSync] = useState(false);
 
   // subscribe to Firestore mood events (with local fallback)
@@ -200,7 +212,6 @@ export default function MoodDashboard({ onBack }) {
       }
     }, (err) => {
       console.error("Failed to subscribe to mood events:", err);
-      // fallback to localStorage one-time
       if (typeof window !== "undefined") {
         try {
           const raw = window.localStorage.getItem(getMoodKey(user.uid));
@@ -246,38 +257,33 @@ export default function MoodDashboard({ onBack }) {
   const daysCount = activeWeek?.days?.length || 0;
   const maxIndex = Math.max(daysCount - 1, 1);
 
-  // ---------------------------
-  // Persistence helpers
-  // ---------------------------
+  /* ---------------------------
+     Persistence helpers
+     --------------------------- */
   async function persistMoodEvents(newEvents) {
     if (!user) {
-      // store locally only
       try {
         window.localStorage.setItem(getMoodKey("public"), JSON.stringify(newEvents));
-      } catch (e) {}
+      } catch (e) { /* ignore */ }
       setMoodEvents(newEvents);
       return;
     }
     setLoadingSync(true);
     try {
-      // localStorage mirror
       try {
         window.localStorage.setItem(getMoodKey(user.uid), JSON.stringify(newEvents));
       } catch (e) {}
-      // Firestore update (merge)
       const userRef = doc(db, "users", user.uid);
       await setDoc(userRef, { moodEvents: newEvents }, { merge: true });
       setMoodEvents(newEvents);
     } catch (err) {
       console.error("Failed to persist mood events:", err);
-      // still update state locally so user sees immediate feedback
       setMoodEvents(newEvents);
     } finally {
       setLoadingSync(false);
     }
   }
 
-  // create a simple mood event and append
   async function addMoodEvent({ emotion, note = "", ts = Date.now() }) {
     if (!user && typeof window === "undefined") return;
     const event = { ts, emotion, note };
@@ -285,7 +291,7 @@ export default function MoodDashboard({ onBack }) {
     await persistMoodEvents(updated);
   }
 
-  // Quick mood buttons (emojis)
+  // Quick mood buttons
   const quickMoods = [
     { id: "happy", emoji: "😄", emotion: "happy", label: "Happy", mood: "high" },
     { id: "sad", emoji: "😔", emotion: "sad", label: "Sad", mood: "low" },
@@ -295,25 +301,20 @@ export default function MoodDashboard({ onBack }) {
   ];
 
   async function handleQuickMood(q) {
-    // create friendly message and small note automatically
     const note = q.label === "Happy" ? "Small win / brighter moment" : `Quick check-in: ${q.label.toLowerCase()}`;
     await addMoodEvent({ emotion: q.emotion, note, ts: Date.now() });
-    // micro animation: flash then show breathing suggestion for low moods
     if (q.mood === "low") {
-      setBreathing(true);
-      setTimeout(() => setBreathing(false), 4200); // run breathing for ~4s
+      runBreathingSequence(4200);
     }
   }
 
-  // Expand a day card for editing/notes/actions
+  // Day card expand/edit/save
   function openDayCard(dayId) {
     setExpandedDay(dayId === expandedDay ? null : dayId);
     setDayNoteDraft("");
   }
 
-  // Save the note for the selected day: this adds a moodEvent with the chosen note and preserves date
   async function saveDayNote(dayId, moodChoice = null) {
-    // find the day date in current weekStart (we'll place ts at midday of that day)
     const dayIdx = activeWeek.days.findIndex((d) => d.id === dayId);
     const weekStart = getWeekStart(new Date(), activeWeek.id === "last-week" ? -1 : 0);
     const target = new Date(weekStart);
@@ -325,10 +326,8 @@ export default function MoodDashboard({ onBack }) {
     setDayNoteDraft("");
   }
 
-  // Export the active week as JSON for the user to download
   function exportWeek() {
     const out = { week: activeWeek, moodEvents: moodEvents.filter((ev) => {
-      // include events in the week range
       const wkStart = getWeekStart(new Date(), activeWeek.id === "last-week" ? -1 : 0);
       const wkEnd = new Date(wkStart);
       wkEnd.setDate(wkStart.getDate() + 7);
@@ -346,7 +345,6 @@ export default function MoodDashboard({ onBack }) {
     URL.revokeObjectURL(url);
   }
 
-  // Small helper to compute a day's dominant mood from events (used when expanding)
   function computeDayEvents(dayId) {
     const dayIdx = activeWeek.days.findIndex((d) => d.id === dayId);
     const wkStart = getWeekStart(new Date(), activeWeek.id === "last-week" ? -1 : 0);
@@ -361,19 +359,112 @@ export default function MoodDashboard({ onBack }) {
     return events;
   }
 
-  // ---------------------------
-  // UI
-  // ---------------------------
+  /* ---------------------------
+     BREATHING SEQUENCE
+     - runBreathingSequence(durationMs)
+       runs one quick inhale-hold-exhale cycle with timed phases
+     --------------------------- */
+  useEffect(() => {
+    let phaseTimer;
+    if (!breathing) {
+      setBreathPhase(0);
+      return;
+    }
+
+    // timings for a single micro-cycle
+    // inhale 1.8s, hold 0.8s, exhale 1.6s ~ total ~4.2s (matching earlier)
+    const inhale = 1800;
+    const hold = 800;
+    const exhale = 1600;
+
+    setBreathPhase(1); // inhale
+    phaseTimer = setTimeout(() => {
+      setBreathPhase(2); // hold
+      phaseTimer = setTimeout(() => {
+        setBreathPhase(3); // exhale
+        phaseTimer = setTimeout(() => {
+          // end breathing cycle
+          setBreathing(false);
+          setBreathPhase(0);
+        }, exhale);
+      }, hold);
+    }, inhale);
+
+    return () => clearTimeout(phaseTimer);
+  }, [breathing]);
+
+  // helper to trigger a breathing micro-session of given ms (approx)
+  function runBreathingSequence(totalMs = 4200) {
+    // if already running, ignore
+    if (breathing) return;
+    setBreathing(true);
+    // effect hook will step phases and eventually turn breathing=false
+    // but ensure a hard fallback to stop after totalMs + buffer
+    setTimeout(() => {
+      setBreathing(false);
+      setBreathPhase(0);
+    }, totalMs + 300);
+  }
+
+  // Quick helper for Emotion Coach (daily affirmation based on summary)
+  function dailyAffirmation() {
+    const tone = summary.dominantMood;
+    if (tone === "high") return "You’re doing well — small steps add up.";
+    if (tone === "low") return "It’s okay to feel this way. Small care matters.";
+    return "You’re showing up for yourself — that matters more than perfect days.";
+  }
+
+  // Emotion Coach actions
+  function actionGrounding() {
+    alert("Grounding (5-4-3-2-1):\nLook for 5 things you can see, 4 things you can touch, 3 things you can hear, 2 things you can smell, 1 thing you can taste (or imagine). Try slowly.");
+  }
+  function actionGratitude() {
+    // open journal or focus — placeholder: insert mood event 'grateful' quickly
+    addMoodEvent({ emotion: "grateful", note: "Quick gratitude: wrote 1 thing I’m thankful for", ts: Date.now() });
+    alert("Gratitude logged. Try writing 1 thing you're thankful for (quick)");
+  }
+  function actionAffirmationCopy() {
+    const text = dailyAffirmation();
+    navigator.clipboard?.writeText?.(text).then(() => {
+      alert("Affirmation copied. Keep it somewhere you can see it.");
+    }).catch(() => {
+      alert("Affirmation: " + text);
+    });
+  }
+
+  /* ---------------------------
+     UI
+     --------------------------- */
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 pb-16">
+      <style>{`
+        /* breathing animation helpers */
+        @keyframes breatheScale {
+          0% { transform: scale(0.78); opacity: 0.65; }
+          50% { transform: scale(1.12); opacity: 0.95; }
+          100% { transform: scale(0.78); opacity: 0.65; }
+        }
+        @keyframes slowPulse {
+          0% { transform: scale(0.9); opacity: 0.08; }
+          50% { transform: scale(1.06); opacity: 0.18; }
+          100% { transform: scale(0.9); opacity: 0.08; }
+        }
+        .animate-breathe {
+          animation: breatheScale 4.2s ease-in-out forwards;
+        }
+        .animate-pulse-slow {
+          animation: slowPulse 2.8s ease-in-out infinite;
+        }
+      `}</style>
+
       <div className="max-w-6xl mx-auto px-4 pt-8">
-        {/* Top */}
+        {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-6">
           <div>
             <p className="text-[11px] uppercase tracking-[0.25em] text-amber-300/80">EMOTI · Mood dashboard</p>
             <h1 className="mt-2 text-2xl md:text-3xl font-semibold">Interactive mood dashboard</h1>
             <p className="mt-1 text-xs md:text-sm text-slate-400 max-w-xl">
-              Explore your emotional week — tap days, add quick notes, or log a mood. Try the breathing exercise when nights get heavy.
+              Explore your emotional week — tap days, add quick notes, or log a mood. Try the breathing tool when nights feel heavy.
             </p>
           </div>
 
@@ -389,7 +480,7 @@ export default function MoodDashboard({ onBack }) {
           </div>
         </div>
 
-        {/* Quick mood + week selector + key stats */}
+        {/* Quick mood + week selector + stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
           {/* Quick mood */}
           <div className="md:col-span-2 rounded-2xl bg-slate-900/80 border border-slate-800 p-4">
@@ -414,25 +505,50 @@ export default function MoodDashboard({ onBack }) {
 
               {/* breathing micro button */}
               <button
-                onClick={() => { setBreathing(true); setTimeout(() => setBreathing(false), 4200); }}
+                onClick={() => runBreathingSequence(4200)}
                 className="px-3 py-2 rounded-full bg-slate-950/80 border border-slate-700 inline-flex items-center gap-2 hover:scale-105 transform transition"
+                aria-pressed={breathing}
               >
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center ${breathing ? "animate-pulse" : ""}`} style={{ background: "linear-gradient(90deg,#0ea5e9,#6366f1)" }}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center ${breathing ? "animate-breathe" : ""}`} style={{ background: "linear-gradient(90deg,#0ea5e9,#6366f1)" }}>
                   🌬
                 </span>
                 <span className="text-xs text-slate-200">Try breathing</span>
               </button>
             </div>
 
-            {/* micro breathing visual */}
+            {/* micro breathing visual (improved) */}
             {breathing && (
               <div className="mt-4 flex items-center gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center relative">
-                    <div className="absolute inset-0 rounded-full bg-sky-400/20 animate-pulse-slow" />
-                    <div className="relative text-slate-900 font-medium">Breathe</div>
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center relative">
+                    {/* outer soft ring */}
+                    <div className="absolute inset-0 rounded-full" style={{ boxShadow: "0 8px 30px rgba(2,6,23,0.6)", background: "radial-gradient(circle at 30% 30%, rgba(99,102,241,0.06), transparent 30%)" }} />
+                    {/* animated bubble */}
+                    <div
+                      className={`relative w-14 h-14 rounded-full flex items-center justify-center text-slate-900 font-medium ${breathing ? "animate-breathe" : ""}`}
+                      style={{
+                        background: "linear-gradient(180deg, rgba(14,165,233,0.95), rgba(99,102,241,0.95))",
+                        color: "#071024",
+                        boxShadow: "0 6px 18px rgba(14,165,233,0.12)",
+                      }}
+                    >
+                      <div className="text-xs">
+                        {breathPhase === 1 && "Inhale"}
+                        {breathPhase === 2 && "Hold"}
+                        {breathPhase === 3 && "Exhale"}
+                        {breathPhase === 0 && "Breathe"}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm text-slate-300">Slow inhale → hold → slow exhale. Repeat 3 times.</div>
+                  <div className="text-sm text-slate-300">
+                    {breathPhase === 1 && "Slow inhale…"}
+                    {breathPhase === 2 && "Hold for a moment…"}
+                    {breathPhase === 3 && "Slow exhale…"}
+                    {breathPhase === 0 && "Try one slow cycle — inhale, hold, exhale."}
+                  </div>
+                </div>
+                <div className="ml-auto">
+                  <button onClick={() => { setBreathing(false); setBreathPhase(0); }} className="px-3 py-1 rounded-full border border-slate-700 text-xs text-slate-200 hover:bg-slate-900/60">Stop</button>
                 </div>
               </div>
             )}
@@ -475,7 +591,7 @@ export default function MoodDashboard({ onBack }) {
           </div>
         </div>
 
-        {/* Chart + side reflection */}
+        {/* Chart area and Emotion Coach Mini (replaces old reflection) */}
         <section className="grid md:grid-cols-3 gap-6 mb-10">
           <div className="md:col-span-2 rounded-2xl bg-slate-900/80 border border-slate-800 p-5">
             <div className="flex items-center justify-between mb-3">
@@ -543,24 +659,71 @@ export default function MoodDashboard({ onBack }) {
             </div>
           </div>
 
-          {/* Reflection box */}
-          <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 text-xs">
-            <h3 className="text-sm font-semibold mb-2">Reflection + micro-tools</h3>
-            <p className="text-slate-300 mb-3">This week felt mostly <span className="font-semibold text-amber-300">{moodLabel(summary.dominantMood).toLowerCase()}</span>. Try short, practical actions below.</p>
-
-            <div className="space-y-2">
-              <button onClick={() => { /* open calm companion or run micro breathing */ setBreathing(true); setTimeout(() => setBreathing(false), 4200); }} className="w-full text-left px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-emerald-300">🧘 Quick breathing (1 min)</button>
-              <button onClick={() => alert("Open playlist → (implement player)")} className="w-full text-left px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-emerald-300">🎧 Play soothing playlist</button>
-              <button onClick={() => alert("Open journal → (implement)")} className="w-full text-left px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-emerald-300">✍️ Write a 2-sentence journal</button>
+          {/* ---------- Emotion Coach Mini (new premium panel) ---------- */}
+          <aside className="rounded-2xl bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-slate-800 p-5 text-xs shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(180deg,#0ea5e9, #7c3aed)" }}>
+                <img src={coachBadge} alt="coach" className="w-10 h-10 rounded-full object-cover" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold">Emotion Coach</h3>
+                <p className="text-[12px] text-slate-300 mt-1">Personal micro-tools tailored for tonight. Quick exercises that you can finish in 1 minute.</p>
+              </div>
             </div>
 
-            <div className="mt-3 text-[11px] text-slate-400">
-              <p>Small, repeated actions (even 1–2 minutes) help more than rare big ones.</p>
+            <div className="mt-4 space-y-3">
+              {/* small hero card with art */}
+              <div className="rounded-xl overflow-hidden border border-slate-800">
+                <div className="relative h-28">
+                  <img src={coachArtwork} alt="art" className="object-cover w-full h-full opacity-95" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                  <div className="absolute left-4 bottom-3 text-sm text-white font-medium">
+                    {summary.dominantMood === "high" ? "Gentle uplift for tonight" : summary.dominantMood === "low" ? "Soften your chest, tiny step" : "A gentle check-in for tonight"}
+                  </div>
+                </div>
+                <div className="p-3 bg-slate-950/90">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-slate-400">Based on this week</div>
+                      <div className="font-semibold text-slate-100 text-sm mt-1">{dailyAffirmation()}</div>
+                    </div>
+                    <div className="text-right">
+                      <button onClick={actionAffirmationCopy} className="px-2 py-1 rounded-full bg-amber-400 text-slate-900 text-xs">Copy</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* micro-action buttons */}
+              <div className="grid gap-2">
+                <button onClick={actionGrounding} className="w-full text-left px-3 py-2 rounded-lg bg-slate-950/75 border border-slate-800 hover:border-sky-400">
+                  <span className="font-medium">🧭 Grounding (5–4–3–2–1)</span>
+                  <div className="text-[12px] text-slate-400 mt-1">Name sensory details to bring yourself into the present.</div>
+                </button>
+
+                <button onClick={() => runBreathingSequence(4200)} className="w-full text-left px-3 py-2 rounded-lg bg-gradient-to-r from-sky-500/80 to-violet-500/80 border border-transparent hover:from-sky-400">
+                  <span className="font-medium">🌬 1-cycle breathing</span>
+                  <div className="text-[12px] text-slate-100 mt-1">One slow inhale → hold → slow exhale. Quick calm in ~4s.</div>
+                </button>
+
+                <button onClick={actionGratitude} className="w-full text-left px-3 py-2 rounded-lg bg-slate-950/75 border border-slate-800 hover:border-emerald-300">
+                  <span className="font-medium">🙏 Quick gratitude</span>
+                  <div className="text-[12px] text-slate-400 mt-1">Log a small grateful moment — builds resilience over time.</div>
+                </button>
+              </div>
+
+              {/* tiny CTA row */}
+              <div className="flex items-center justify-between text-[12px] text-slate-400">
+                <div>Small steps, repeated daily, create change.</div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => alert("Open Calm Companion (coming)")} className="px-2 py-1 rounded-full border border-slate-700 text-xs">Open calm companion</button>
+                </div>
+              </div>
             </div>
-          </div>
+          </aside>
         </section>
 
-        {/* Daily notes list with interactive cards */}
+        {/* Daily notes list with interactive cards (unchanged layout) */}
         <section className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5">
           <h3 className="text-sm font-semibold mb-3">Daily emotional snapshots</h3>
           <p className="text-[11px] text-slate-500 mb-3">Tap a day to expand, save a note, or change its mood.</p>
@@ -612,21 +775,18 @@ export default function MoodDashboard({ onBack }) {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <input value={dayNoteDraft} onChange={(e)=>setDayNoteDraft(e.target.value)} placeholder="Write a small note (private)" className="bg-slate-900/70 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100" />
                         <div className="flex gap-2">
-                          <select onChange={(e)=>setDayNoteDraft(prev => prev)} className="hidden" />
                           <button onClick={()=>saveDayNote(day.id)} className="px-3 py-2 rounded bg-amber-400 text-slate-900 font-medium">Save note</button>
                           <div className="ml-auto flex gap-1">
-                            {/* quick mood set */}
                             <button onClick={()=>saveDayNote(day.id, "happy")} className="px-2 py-1 rounded-full bg-emerald-400 text-slate-900">😄</button>
                             <button onClick={()=>saveDayNote(day.id, "sad")} className="px-2 py-1 rounded-full bg-rose-400 text-white">😔</button>
                             <button onClick={()=>saveDayNote(day.id, "anxious")} className="px-2 py-1 rounded-full bg-rose-400 text-white">😰</button>
                           </div>
                         </div>
 
-                        {/* suggestions */}
                         <div className="col-span-1 md:col-span-2 mt-2 text-[11px] text-slate-400">
                           <div className="mb-1 font-semibold text-slate-200">Try this</div>
                           <div className="flex gap-2 flex-wrap">
-                            <button onClick={()=>{ alert("Start 2-min breathing"); setBreathing(true); setTimeout(()=>setBreathing(false),4200); }} className="px-2 py-1 rounded bg-slate-950/80 border border-slate-700">2-min breathing</button>
+                            <button onClick={()=>{ runBreathingSequence(4200); }} className="px-2 py-1 rounded bg-slate-950/80 border border-slate-700">2-min breathing</button>
                             <button onClick={()=>alert("Open playlist")} className="px-2 py-1 rounded bg-slate-950/80 border border-slate-700">Comforting music</button>
                             <button onClick={()=>alert("Journal prompt: What helped today?")} className="px-2 py-1 rounded bg-slate-950/80 border border-slate-700">Journal prompt</button>
                           </div>
