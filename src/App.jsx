@@ -1,3 +1,4 @@
+// src/App.jsx
 import CalmCompanion from "./components/CalmCompanion"; // ✅ NEW
 import EmotionImages from "./components/EmotionImages"; //
 import Journal from "./components/Journal"; //
@@ -90,13 +91,15 @@ export default function App() {
       {/* NAVBAR */}
       <nav className="sticky top-0 z-30 bg-slate-950/85 backdrop-blur border-b border-slate-800/80">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          {/* Logo */}
+          {/* Logo + identity */}
           <div className="flex items-center gap-3">
             <div className="relative flex items-center" aria-hidden>
-              {/* animated glow */}
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-sky-500/30 via-violet-500/20 to-rose-500/20 blur-md opacity-60" />
-              <div className="relative w-9 h-9 rounded-2xl bg-slate-950 border border-slate-700 flex items-center justify-center">
-                <div className="w-7 h-7 rounded-2xl bg-gradient-to-br from-sky-400 via-violet-500 to-rose-400 flex items-center justify-center text-[14px] font-bold text-slate-950 shadow-md transform transition-transform duration-400 hover:scale-105">
+              {/* animated gradient ring */}
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-sky-500/30 via-violet-500/20 to-rose-500/20 blur-md opacity-60 animate-[pulse_6s_infinite]" />
+
+              <div className="relative w-11 h-11 rounded-3xl bg-slate-950 border border-slate-700 flex items-center justify-center shadow-sm">
+                {/* inner logo circle */}
+                <div className="w-8 h-8 rounded-2xl bg-gradient-to-br from-sky-400 via-violet-500 to-rose-400 flex items-center justify-center text-[14px] font-bold text-slate-950 shadow-md transform transition-transform duration-300 hover:scale-105">
                   🙂
                 </div>
               </div>
@@ -104,7 +107,7 @@ export default function App() {
 
             <div className="flex flex-col leading-tight">
               <span className="font-semibold tracking-wide text-sm">EMOTI</span>
-              <span className="text-[10px] text-slate-400">Feel-safe AI companion</span>
+              <span className="text-[11px] text-sky-300">Your Emotional AI Companion</span>
             </div>
           </div>
 
@@ -130,6 +133,15 @@ export default function App() {
               </svg>
             </button>
 
+            {/* subtle welcome container (rounded) */}
+            <div className="hidden sm:flex items-center bg-slate-900/60 border border-slate-800 rounded-full px-3 py-1 gap-3">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px]">🙂</div>
+              <div className="flex flex-col leading-tight">
+                <span className="text-xs text-slate-200">Hi{user?.displayName ? `, ${user.displayName.split(' ')[0]}` : ''}</span>
+                <span className="text-[10px] text-slate-400">{user ? 'You have premium access' : 'Try Emoti — start chatting'}</span>
+              </div>
+            </div>
+
             {user && (
               <>
                 {isPremium ? (
@@ -150,13 +162,11 @@ export default function App() {
                   <img
                     src={user.photoURL}
                     alt="Profile"
-                    className="w-8 h-8 rounded-full border border-slate-600 object-cover"
+                    className="w-9 h-9 rounded-full border-2 border-slate-800 object-cover shadow-sm"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-xs font-semibold">
-                    {userInitial}
-                  </div>
+                  <div className="w-9 h-9 rounded-full bg-slate-800 border-2 border-slate-800 flex items-center justify-center text-sm font-semibold">{userInitial}</div>
                 )}
               </div>
             )}
