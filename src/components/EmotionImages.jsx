@@ -1,23 +1,87 @@
 // src/components/EmotionImages.jsx
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
-/* ---------- fallback sample data & helpers (kept from your original) ---------- */
+/* ---------- Demo fallback images
+   NOTE: developer/system will transform local path into an accessible URL.
+   Using the uploaded file as demo fallback per your request.
+*/
+const UPLOADED_DEMO = "/mnt/data/11ea7461-c987-40b2-ae8e-67cb151b5d65.png";
+
+// Map moods to example images. Replace these URLs with your real hosted images.
+const moodImageMap = {
+  calm: UPLOADED_DEMO, // replace with calm image URL
+  hopeful: UPLOADED_DEMO, // replace with hopeful image URL
+  heavy: UPLOADED_DEMO, // replace with heavy image URL
+  mixed: UPLOADED_DEMO, // replace with mixed image URL
+  default: UPLOADED_DEMO,
+};
+
+/* ---------- sample fallback data (kept from your original) ---------- */
 const SAMPLE_EMOTION_IMAGES = [
-  { id: "calm-1", title: "Quiet evening calm", mood: "calm", tone: "Soft, peaceful, slightly reflective", description: "Soft blue and purple tones with gentle light – representing a calmer, slower evening after a heavy week.", tags: ["calm", "relief", "evening"], createdAt: "Sample · not yet personalised", sourceLabel: "sample reflection" },
-  { id: "heavy-1", title: "Overthinking cloud", mood: "heavy", tone: "Dense, slightly chaotic, heavy in the chest", description: "Dark clouds with thin lines of light trying to break through, visualising looping thoughts and mental noise.", tags: ["overthinking", "anxiety", "foggy"], createdAt: "Sample · not yet personalised", sourceLabel: "sample reflection" },
-  { id: "hope-1", title: "Small hope in the corner", mood: "hopeful", tone: "Gentle but bright, like a small light in a dark room", description: "Deep navy background with one warm golden window, symbolising a tiny but real sense of hope.", tags: ["hope", "resilience", "tiny-win"], createdAt: "Sample · not yet personalised", sourceLabel: "sample reflection" },
-  { id: "mixed-1", title: "Mixed day, mixed sky", mood: "mixed", tone: "Half bright, half cloudy – up and down", description: "Split sky: one side clear and blue, the other cloudy and muted, capturing a day that felt both okay and heavy.", tags: ["mixed", "up-and-down", "processing"], createdAt: "Sample · not yet personalised", sourceLabel: "sample reflection" },
+  {
+    id: "calm-1",
+    title: "Quiet evening calm",
+    mood: "calm",
+    tone: "Soft, peaceful, slightly reflective",
+    description:
+      "Soft blue and purple tones with gentle light – representing a calmer, slower evening after a heavy week.",
+    tags: ["calm", "relief", "evening"],
+    createdAt: "Sample · not yet personalised",
+    sourceLabel: "sample reflection",
+    imageUrl: moodImageMap.calm,
+  },
+  {
+    id: "heavy-1",
+    title: "Overthinking cloud",
+    mood: "heavy",
+    tone: "Dense, slightly chaotic, heavy in the chest",
+    description:
+      "Dark clouds with thin lines of light trying to break through, visualising looping thoughts and mental noise.",
+    tags: ["overthinking", "anxiety", "foggy"],
+    createdAt: "Sample · not yet personalised",
+    sourceLabel: "sample reflection",
+    imageUrl: moodImageMap.heavy,
+  },
+  {
+    id: "hope-1",
+    title: "Small hope in the corner",
+    mood: "hopeful",
+    tone: "Gentle but bright, like a small light in a dark room",
+    description:
+      "Deep navy background with one warm golden window, symbolising a tiny but real sense of hope.",
+    tags: ["hope", "resilience", "tiny-win"],
+    createdAt: "Sample · not yet personalised",
+    sourceLabel: "sample reflection",
+    imageUrl: moodImageMap.hopeful,
+  },
+  {
+    id: "mixed-1",
+    title: "Mixed day, mixed sky",
+    mood: "mixed",
+    tone: "Half bright, half cloudy – up and down",
+    description:
+      "Split sky: one side clear and blue, the other cloudy and muted, capturing a day that felt both okay and heavy.",
+    tags: ["mixed", "up-and-down", "processing"],
+    createdAt: "Sample · not yet personalised",
+    sourceLabel: "sample reflection",
+    imageUrl: moodImageMap.mixed,
+  },
 ];
 
 function moodColor(mood) {
   switch (mood) {
-    case "calm": return "bg-sky-400";
-    case "hopeful": return "bg-emerald-400";
-    case "heavy": return "bg-rose-400";
-    case "mixed": default: return "bg-amber-400";
+    case "calm":
+      return "bg-sky-400";
+    case "hopeful":
+      return "bg-emerald-400";
+    case "heavy":
+      return "bg-rose-400";
+    case "mixed":
+    default:
+      return "bg-amber-400";
   }
 }
 
@@ -33,65 +97,44 @@ function getMoodKey(uid) {
   return `emoti_mood_events_${uid}`;
 }
 
-/* ---------- helper: gradient & svg exporter ---------- */
-function gradientForCard(id, mood) {
-  const seed = id?.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0) || 0;
-  const palettes = {
-    calm: ["#0f1724", "#0ea5e9", "#6366f1"],
-    hopeful: ["#020617", "#22c55e", "#f59e0b"],
-    heavy: ["#0b0f14", "#ef4444", "#374151"],
-    mixed: ["#020617", "#f59e0b", "#0ea5e9"],
-  };
-  const colors = palettes[mood] || palettes.mixed;
-  const angle = seed % 360;
-  return {
-    backgroundImage: `
-      radial-gradient(circle at 10% 0%, ${colors[1]}33, transparent 55%),
-      radial-gradient(circle at 90% 100%, ${colors[2]}33, transparent 55%),
-      linear-gradient(${angle}deg, ${colors[0]}, ${colors[1]}55, ${colors[2]})
-    `,
-    transform: `rotate(${(seed % 7) - 3}deg) scale(1.03)`,
-    transformOrigin: "center",
-    backgroundSize: "140% 140%",
-    backgroundPosition: "center",
-  };
+/* ---------- utility: download image via canvas to ensure same-origin/export works ---------- */
+async function downloadImageAsPng(url, filename = "emoti-reflection.png") {
+  // attempt to fetch the image as blob (works for same-origin or permissive CORS)
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    const blob = await res.blob();
+
+    // draw to canvas to ensure consistent PNG export (and apply optional watermarks later)
+    const img = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    // optional watermark (light):
+    ctx.fillStyle = "rgba(255,255,255,0.03)";
+    ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = `${Math.max(12, Math.round(canvas.width / 60))}px sans-serif`;
+    ctx.textAlign = "right";
+    ctx.fillText("EMOTI", canvas.width - 12, canvas.height - 22);
+
+    const dataUrl = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  } catch (err) {
+    // fallback: open image in new tab to let browser download
+    window.open(url, "_blank", "noopener");
+    return false;
+  }
 }
 
-function svgForCard(id, mood, title = "") {
-  // produce SVG content that mirrors the CSS gradient (approximate)
-  const seed = id?.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0) || 0;
-  const palettes = {
-    calm: ["#0f1724", "#0ea5e9", "#6366f1"],
-    hopeful: ["#020617", "#22c55e", "#f59e0b"],
-    heavy: ["#0b0f14", "#ef4444", "#374151"],
-    mixed: ["#020617", "#f59e0b", "#0ea5e9"],
-  };
-  const c = palettes[mood] || palettes.mixed;
-  const angle = seed % 360;
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1600' height='1000'>
-    <defs>
-      <linearGradient id='g' gradientTransform='rotate(${angle})'>
-        <stop offset='0%' stop-color='${c[0]}' />
-        <stop offset='50%' stop-color='${c[1]}' stop-opacity='0.85' />
-        <stop offset='100%' stop-color='${c[2]}' stop-opacity='0.95' />
-      </linearGradient>
-      <radialGradient id='r1' cx='10%' cy='0%'><stop offset='0%' stop-color='${c[1]}' stop-opacity='0.18'/><stop offset='100%' stop-color='transparent' stop-opacity='0'/></radialGradient>
-      <radialGradient id='r2' cx='90%' cy='100%'><stop offset='0%' stop-color='${c[2]}' stop-opacity='0.18'/><stop offset='100%' stop-color='transparent' stop-opacity='0'/></radialGradient>
-    </defs>
-    <rect width='100%' height='100%' fill='url(#g)' />
-    <rect width='100%' height='100%' fill='url(#r1)' />
-    <rect width='100%' height='100%' fill='url(#r2)' />
-    <text x='50%' y='88%' fill='white' font-size='36' font-family='sans-serif' text-anchor='middle' opacity='0.85'>${escapeXml(title)}</text>
-  </svg>`;
-  return svg;
-}
-
-// small XML escape
-function escapeXml(s = "") {
-  return String(s).replace(/[&<>'"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[c]));
-}
-
-/* ---------- component ---------- */
+/* ---------- EmotionImages component (updated to use images) ---------- */
 export default function EmotionImages({ onBack }) {
   const { user, isPremium } = useAuth();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -102,35 +145,36 @@ export default function EmotionImages({ onBack }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(null);
 
-  // favorites state synced to localStorage + Firestore
+  // favorites
   const favKey = user ? `emoti_favs_${user.uid}` : `emoti_favs_anon`;
   const [favorites, setFavorites] = useState(() => {
     try {
       const raw = localStorage.getItem(favKey);
       return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   });
 
-  // helper: sync favorites to Firestore (merge)
-  const syncFavoritesToCloud = async (newFavs) => {
-    if (!user) return;
-    try {
-      const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, { favoriteImages: newFavs }, { merge: true });
-    } catch (err) {
-      console.error("Failed to sync favorites to cloud", err);
-    }
-  };
-
   useEffect(() => {
-    // persist favorites to localStorage
-    try { localStorage.setItem(favKey, JSON.stringify(favorites)); } catch (e) {}
-    // and cloud
-    syncFavoritesToCloud(favorites);
+    try {
+      localStorage.setItem(favKey, JSON.stringify(favorites));
+    } catch {}
+    // optional: sync to Firestore for logged-in users (non-blocking)
+    if (user) {
+      (async () => {
+        try {
+          const uRef = doc(db, "users", user.uid);
+          await setDoc(uRef, { favoriteImages: favorites }, { merge: true });
+        } catch (err) {
+          console.error("Failed to sync favorites to cloud", err);
+        }
+      })();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [favorites]);
 
-  // load images from Firestore / localStorage -> build images
+  // Load mood events -> build images (reuses your previous buildImagesFromEvents logic)
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -148,8 +192,7 @@ export default function EmotionImages({ onBack }) {
           const data = snap.data();
           if (Array.isArray(data.moodEvents)) events = data.moodEvents;
         }
-
-        // fallback to localStorage
+        // fallback to localStorage for mood events
         if (!events.length) {
           try {
             const raw = window.localStorage.getItem(getMoodKey(user.uid));
@@ -160,8 +203,12 @@ export default function EmotionImages({ onBack }) {
           }
         }
 
-        // transform events into image cards (we reuse your original grouping logic)
-        const built = buildImagesFromEvents(events);
+        // build cards from events; each card gets imageUrl based on mood
+        const built = buildImagesFromEvents(events).map((card) => ({
+          ...card,
+          imageUrl: moodImageMap[card.mood] || moodImageMap.default,
+        }));
+
         if (!cancelled) {
           setImages(built.length > 0 ? built : SAMPLE_EMOTION_IMAGES);
         }
@@ -173,13 +220,16 @@ export default function EmotionImages({ onBack }) {
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
-  // counts for filters
   const filterCounts = useMemo(() => {
     const counts = { all: images.length, calm: 0, hopeful: 0, heavy: 0, mixed: 0 };
-    images.forEach((i) => { counts[i.mood] = (counts[i.mood] || 0) + 1; });
+    images.forEach((i) => {
+      counts[i.mood] = (counts[i.mood] || 0) + 1;
+    });
     return counts;
   }, [images]);
 
@@ -188,66 +238,36 @@ export default function EmotionImages({ onBack }) {
     return images.filter((img) => img.mood === activeFilter);
   }, [activeFilter, images]);
 
-  // modal open helper
-  const openModal = (img) => { setActive(img); setOpen(true); document.body.style.overflow = "hidden"; };
-  const closeModal = () => { setOpen(false); setActive(null); document.body.style.overflow = ""; };
-
-  // favorite toggle
-  const toggleFav = (id) => {
-    setFavorites((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      return next;
-    });
+  const openModal = (img) => {
+    setActive(img);
+    setOpen(true);
+    document.body.style.overflow = "hidden";
+  };
+  const closeModal = () => {
+    setOpen(false);
+    setActive(null);
+    document.body.style.overflow = "";
   };
 
-  // download card as PNG via SVG data URL (no external libs)
-  const downloadCard = (img) => {
+  const toggleFav = (id) => {
+    setFavorites((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const handleDownload = async (img) => {
     if (!isPremium) {
-      // show a small upgrade prompt — since we don't have a toast system here, use alert for now
-      alert("Download high-res is a Premium feature. Consider upgrading to unlock downloads.");
+      // optional UI: show modal upgrade prompt; for now alert
+      alert("High-resolution downloads are a Premium feature. Upgrade to download full quality images.");
       return;
     }
-    const svg = svgForCard(img.id, img.mood, img.title);
-    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${img.title.replace(/\s+/g, "-").toLowerCase()}.svg`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
 
-  // "use in journal" simple hook — opens prompt and returns text (connect to your journal system)
-  const useInJournal = (img) => {
-    const note = prompt("Add a short journal note for this reflection:", `Reflection: ${img.title}\n\nWhy this card?`);
-    if (note) {
-      // TODO: connect to /api/journal or Journal component; for now store in localStorage quick-journal
-      try {
-        const k = "emoti_quick_journal";
-        const raw = localStorage.getItem(k);
-        const arr = raw ? JSON.parse(raw) : [];
-        arr.unshift({ ts: Date.now(), title: img.title, note });
-        localStorage.setItem(k, JSON.stringify(arr.slice(0, 200)));
-        alert("Saved to quick journal (local). Connect to your journal endpoint to persist.");
-      } catch (err) {
-        console.error("Failed to save quick journal", err);
-      }
-    }
+    // use canvas download helper to produce PNG reliably
+    await downloadImageAsPng(img.imageUrl || UPLOADED_DEMO, `${(img.title || "emoti-reflection").replace(/\s+/g, "-").toLowerCase()}.png`);
   };
-
-  // keyboard ESC to close modal
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") closeModal(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 pb-16">
       <div className="max-w-6xl mx-auto px-4 pt-8">
-        {/* Top bar */}
+        {/* top */}
         <div className="flex items-center justify-between gap-3 mb-6">
           <div>
             <p className="text-[11px] uppercase tracking-[0.25em] text-amber-300/80">EMOTI · AI emotion images</p>
@@ -265,9 +285,8 @@ export default function EmotionImages({ onBack }) {
           </div>
         </div>
 
-        {/* Filters + legend */}
+        {/* filters + legend */}
         <div className="grid md:grid-cols-3 gap-4 mb-8">
-          {/* Filters */}
           <div className="md:col-span-2 rounded-2xl bg-slate-900/80 border border-slate-800 p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold">Filter by emotional tone</h2>
@@ -291,70 +310,66 @@ export default function EmotionImages({ onBack }) {
             </div>
           </div>
 
-          {/* Legend (clickable) */}
+          {/* legend */}
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs">
             <p className="text-[11px] text-slate-400 mb-2">Colour legend (mood tone)</p>
-            <div className="space-y-2 text-[11px] text-slate-300">
-              {["calm","hopeful","heavy","mixed"].map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setActiveFilter(m)}
-                  className="w-full text-left flex items-center gap-2 rounded-md px-2 py-1 hover:bg-slate-900/70 transition"
-                >
-                  <span className={`w-3 h-3 rounded-full ${moodColor(m)}`} />
-                  <span className="flex-1">{m === "calm" ? "Calm / grounded" : m === "hopeful" ? "Hopeful / growing" : m === "heavy" ? "Heavy / overwhelmed" : "Mixed / up & down"}</span>
-                  <span className="text-slate-500 text-[11px]">{filterCounts[m] ?? 0}</span>
-                </button>
-              ))}
+            <div className="space-y-1 text-[11px] text-slate-300">
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-sky-400" />Calm / grounded</div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-emerald-400" />Hopeful / growing</div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-rose-400" />Heavy / overwhelmed</div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-amber-400" />Mixed / up &amp; down</div>
             </div>
           </div>
         </div>
 
-        {/* Main grid */}
+        {/* main grid */}
         <section className="grid md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-6">
-          {/* Image cards */}
           <div className="space-y-4">
             {loading && (
-              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 text-center text-xs text-slate-400">
-                Loading reflections…
-              </div>
+              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 text-center text-xs text-slate-400">Loading reflections…</div>
             )}
 
             {!loading && visibleImages.length === 0 && (
               <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 text-center text-xs text-slate-400">
                 No images for this mood yet. Start chatting tonight and EMOTI will reflect back how you feel.
-                <div className="mt-3">
-                  <button onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })} className="px-4 py-2 rounded-full bg-amber-400 text-slate-900">Start chat</button>
-                </div>
+                <div className="mt-3"><button onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })} className="px-4 py-2 rounded-full bg-amber-400 text-slate-900">Start chat</button></div>
               </div>
             )}
 
             {visibleImages.map((img, idx) => (
-              <article key={img.id} className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 md:p-5 transform transition hover:-translate-y-1 hover:shadow-2xl" style={{ animation: `fadeIn 300ms ease ${idx*60}ms both` }}>
+              <article key={img.id} className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 md:p-5 transform transition hover:-translate-y-1 hover:shadow-2xl">
                 <div className="grid md:grid-cols-[220px,minmax(0,1fr)] gap-4">
-                  {/* preview */}
+                  {/* image preview */}
                   <div className="relative">
-                    <div role="button" tabIndex={0} onClick={() => openModal(img)} onKeyDown={(e)=>{ if(e.key==="Enter") openModal(img) }} className="h-40 rounded-xl overflow-hidden border border-slate-700 shadow-[0_10px_40px_rgba(2,6,23,0.6)] transition-transform hover:scale-[1.01] cursor-pointer" style={gradientForCard(img.id, img.mood)}>
-                      <div className="h-full w-full flex items-center justify-center text-[11px] text-slate-100/80">AI mood reflection</div>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openModal(img)}
+                      onKeyDown={(e) => { if (e.key === "Enter") openModal(img); }}
+                      className="h-40 rounded-xl overflow-hidden border border-slate-700 shadow-[0_10px_40px_rgba(2,6,23,0.6)] transition-transform cursor-pointer hover:scale-[1.01] bg-cover bg-center"
+                      style={{ backgroundImage: `url("${img.imageUrl || UPLOADED_DEMO}")` }}
+                    >
+                      <div className="h-full w-full flex items-end justify-start p-3 bg-gradient-to-t from-black/45 to-transparent">
+                        <div className="rounded-md bg-black/35 px-2 py-1 text-xs text-slate-100">{img.title}</div>
+                      </div>
                     </div>
 
-                    {/* mood pill + favorite */}
                     <div className="mt-2 flex items-center justify-between">
                       <span className="inline-flex items-center gap-2 rounded-full bg-slate-900/90 border border-slate-700 px-2.5 py-1 text-[10px] text-slate-300">
                         <span className={`w-2 h-2 rounded-full ${moodColor(img.mood)}`} />
-                        {img.mood.charAt(0).toUpperCase() + img.mood.slice(1)} / {img.sourceLabel || "auto"}
+                        {img.mood.charAt(0).toUpperCase() + img.mood.slice(1)}
                       </span>
 
                       <div className="flex items-center gap-2">
-                        <button aria-label="Favorite" onClick={() => toggleFav(img.id)} className="px-2 py-1 rounded-full border border-slate-700 bg-slate-900/70 hover:bg-amber-400/10 transition">
+                        <button onClick={() => toggleFav(img.id)} className="px-2 py-1 rounded-full border border-slate-700 bg-slate-900/70 hover:bg-amber-400/10 transition">
                           <span className={`text-sm ${favorites.includes(img.id) ? "text-amber-300" : "text-slate-300"}`}>{favorites.includes(img.id) ? "★" : "☆"}</span>
                         </button>
-                        <button aria-label="Open" onClick={() => openModal(img)} className="px-2 py-1 rounded-full border border-slate-700 bg-slate-900/70 hover:bg-sky-400/10 transition text-slate-300">Open</button>
+                        <button onClick={() => openModal(img)} className="px-2 py-1 rounded-full border border-slate-700 bg-slate-900/70 hover:bg-sky-400/10 transition text-slate-300">Open</button>
                       </div>
                     </div>
                   </div>
 
-                  {/* text info */}
+                  {/* info */}
                   <div className="flex flex-col justify-between gap-2 text-xs md:text-[13px]">
                     <div>
                       <h3 className="text-sm md:text-base font-semibold mb-1">{img.title}</h3>
@@ -370,7 +385,7 @@ export default function EmotionImages({ onBack }) {
                       </div>
 
                       <div className="flex flex-col items-end gap-0.5">
-                        <span className="text-[10px] text-emerald-300/90">Auto-generated {img.sourceLabel ? ` ${img.sourceLabel}` : "from your recent chats"}</span>
+                        <span className="text-[10px] text-emerald-300/90">Auto-generated {img.sourceLabel || "from your recent chats"}</span>
                         <span className="text-[10px] text-slate-500">{img.createdAt}</span>
                       </div>
                     </div>
@@ -380,11 +395,11 @@ export default function EmotionImages({ onBack }) {
             ))}
           </div>
 
-          {/* Side panel */}
+          {/* side panel */}
           <aside className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 text-xs space-y-4">
             <div>
               <h3 className="text-sm font-semibold mb-1">How EMOTI uses images</h3>
-              <p className="text-slate-400">These visuals are meant to make your feelings easier to notice. You can save, journal with, or simply look at them to check in with yourself.</p>
+              <p className="text-slate-400">These visuals make your feelings easier to notice. Save, journal, or simply look at them to check in with yourself.</p>
             </div>
 
             <div>
@@ -392,27 +407,27 @@ export default function EmotionImages({ onBack }) {
               <ul className="space-y-1 text-slate-400 list-disc list-inside">
                 <li>Which image feels closest to how today felt?</li>
                 <li>If this picture could talk, what would it say about what you need right now?</li>
-                <li>Is there one small action that matches the "hopeful" image?</li>
+                <li>Is there a small action that matches the "hopeful" image?</li>
               </ul>
             </div>
 
             <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-4">
               <p className="text-[11px] text-slate-400 mb-1">Coming soon</p>
-              <p className="text-slate-300">In the future, EMOTI can create richer artwork from especially intense or important chats, so you'll slowly build a visual diary of your emotional journey.</p>
+              <p className="text-slate-300">We’ll add richer artwork generation from important chats and options to export packs of your reflections.</p>
             </div>
           </aside>
         </section>
       </div>
 
-      {/* Modal viewer */}
+      {/* Modal */}
       {open && active && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/60" onClick={closeModal} />
           <div className="relative w-full max-w-4xl rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl">
             <div className="grid md:grid-cols-[1fr_360px] gap-4 p-6">
               <div className="flex flex-col gap-3">
-                <div className="rounded-xl h-72 md:h-[420px] border border-slate-700 overflow-hidden" style={gradientForCard(active.id, active.mood)}>
-                  <div className="h-full w-full flex items-center justify-center text-[12px] text-slate-100/80">AI mood reflection — {active.title}</div>
+                <div className="rounded-xl h-72 md:h-[420px] border border-slate-700 overflow-hidden bg-cover bg-center" style={{ backgroundImage: `url("${active.imageUrl || UPLOADED_DEMO}")` }}>
+                  {/* optional overlay text */}
                 </div>
 
                 <div>
@@ -422,15 +437,15 @@ export default function EmotionImages({ onBack }) {
                 </div>
 
                 <div className="mt-3 flex items-center gap-2">
-                  <button onClick={() => { downloadCard(active); }} className={`px-4 py-2 rounded-full ${isPremium ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-slate-200 border border-slate-700"} hover:scale-[1.02] transition`} aria-label="Download reflection">
-                    {isPremium ? "Download" : "Download (Premium)"}
+                  <button onClick={() => handleDownload(active)} className={`px-4 py-2 rounded-full ${isPremium ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-slate-200 border border-slate-700"}`}>
+                    {isPremium ? "Download PNG" : "Download (Premium)"}
                   </button>
 
                   <button onClick={() => toggleFav(active.id)} className="px-4 py-2 rounded-full bg-slate-800 text-slate-200 border border-slate-700">
                     {favorites.includes(active.id) ? "★ Favorited" : "☆ Save"}
                   </button>
 
-                  <button onClick={() => useInJournal(active)} className="px-4 py-2 rounded-full bg-sky-500 text-white">Use in Journal</button>
+                  <button onClick={() => { const note = prompt("Add a short journal note for this reflection:", `Reflection: ${active.title}`); if (note) { try { const k = "emoti_quick_journal"; const raw = localStorage.getItem(k); const arr = raw ? JSON.parse(raw) : []; arr.unshift({ ts: Date.now(), title: active.title, note }); localStorage.setItem(k, JSON.stringify(arr.slice(0, 200))); alert("Saved to quick journal (local)."); } catch (err) { console.error(err); } } }} className="px-4 py-2 rounded-full bg-sky-500 text-white">Use in Journal</button>
                 </div>
               </div>
 
@@ -457,32 +472,18 @@ export default function EmotionImages({ onBack }) {
 
                 <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-3 text-xs">
                   <p className="text-slate-400 mb-2">Tags</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(active.tags || []).map(t => <span key={t} className="px-2 py-1 rounded-full bg-slate-900 border border-slate-700 text-[12px]">{t}</span>)}
-                  </div>
-                </div>
-
-                <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-3 text-xs">
-                  <p className="text-slate-400 mb-2">Share</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => { navigator.clipboard?.writeText(window.location.href); alert("Link copied. Compose a message to share your reflection."); }} className="px-3 py-1 rounded-full border border-slate-700">Copy link</button>
-                    <button onClick={() => alert("Share flow not implemented yet — integrate social share here")} className="px-3 py-1 rounded-full border border-slate-700">Share</button>
-                  </div>
+                  <div className="flex flex-wrap gap-2">{(active.tags || []).map((t) => <span key={t} className="px-2 py-1 rounded-full bg-slate-900 border border-slate-700 text-[12px]">{t}</span>)}</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) }}
-      `}</style>
     </div>
   );
 }
 
-/* ---------- helper: buildImagesFromEvents (copied & slightly adapted) ---------- */
+/* ---------- helper: buildImagesFromEvents (copied/adapted) ---------- */
 function mapEmotionToMood(emotion) {
   if (!emotion) return "mixed";
   const e = String(emotion).toLowerCase();
