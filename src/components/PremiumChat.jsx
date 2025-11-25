@@ -71,6 +71,45 @@ async function appendMoodEvent(uid, emotion) {
   }
 }
 
+/* -----------------------------
+   Small shared EmotiAvatar component
+   (calming violet → blue gradient)
+   ----------------------------- */
+function EmotiAvatar({ size = 28 }) {
+  const s = typeof size === "number" ? `${size}px` : size;
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width: s,
+        height: s,
+        borderRadius: "9999px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background:
+          "linear-gradient(135deg, rgba(139,92,246,0.95) 0%, rgba(56,189,248,0.9) 100%)",
+        boxShadow: "0 6px 18px rgba(8,10,25,0.45)",
+      }}
+    >
+      <div
+        style={{
+          width: `calc(${s} - 8px)`,
+          height: `calc(${s} - 8px)`,
+          borderRadius: "9999px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "white",
+          fontSize: Math.max(10, Math.round(parseInt(s, 10) / 2.6)),
+        }}
+      >
+        🙂
+      </div>
+    </div>
+  );
+}
+
 export default function PremiumChat() {
   const { user } = useAuth();
 
@@ -89,7 +128,12 @@ export default function PremiumChat() {
 
   const boxRef = useRef(null);
 
-  // 🔹 edit/delete state (same behaviour as normal chat)
+  // tiny UI flag for send micro-animation
+  const [justSentId, setJustSentId] = useState(null);
+
+  // -----------------------------
+  // Edit/delete state (same behaviour as normal chat)
+  // -----------------------------
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
 
@@ -98,7 +142,7 @@ export default function PremiumChat() {
   // -----------------------------
   useEffect(() => {
     if (boxRef.current) {
-      boxRef.current.scrollTop = boxRef.current.scrollHeight;
+      boxRef.current.scrollTop = boxRef.current.scrollHeight + 200;
     }
   }, [messages]);
 
@@ -188,7 +232,7 @@ export default function PremiumChat() {
     try {
       window.localStorage.setItem(key, JSON.stringify(sessions));
     } catch (err) {
-      console.error("Failed to save premium sessions to localStorage:", err);
+      console.error("Failed to save premium sessions to localStorage", err);
     }
 
     // Firestore sync
@@ -439,9 +483,15 @@ export default function PremiumChat() {
       time: now,
     };
 
+    // mark just-sent for micro animation
+    setJustSentId(now);
+
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
+
+    // clear the just-sent flag shortly after to allow CSS animation
+    setTimeout(() => setJustSentId(null), 220);
 
     try {
       const res = await fetch(API_URL, {
@@ -691,13 +741,29 @@ export default function PremiumChat() {
   // -----------------------------
   return (
     <div className="w-full max-w-4xl mx-auto bg-gradient-to-b from-slate-950/90 via-slate-900/95 to-slate-950/90 rounded-[2rem] border border-amber-400/50 shadow-[0_0_50px_rgba(250,204,21,0.25)] flex flex-col overflow-hidden">
+      {/* local CSS keyframes for tiny animations */}
+      <style>{`
+        @keyframes send-vibrate {
+          0% { transform: translateY(0) scale(1); }
+          30% { transform: translateY(-4px) scale(0.997); }
+          60% { transform: translateY(2px) scale(0.998); }
+          100% { transform: translateY(0) scale(1); }
+        }
+
+        @keyframes dot-pulse {
+          0% { opacity: 0.18; transform: translateY(0); }
+          50% { opacity: 1; transform: translateY(-3px); }
+          100% { opacity: 0.18; transform: translateY(0); }
+        }
+      `}</style>
+
       {/* HEADER */}
       <header className="flex flex-col gap-4 px-6 py-4 border-b border-amber-400/30 bg-slate-950/95">
         {/* top row: title + language/mode */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 via-fuchsia-500 to-sky-400 flex items-center justify-center text-slate-950 font-bold text-lg shadow-lg">
-              🙂
+            <div style={{ width: 44, height: 44 }}>
+              <EmotiAvatar size={44} />
             </div>
             <div>
               <h2 className="text-sm font-semibold flex items-center gap-2">
@@ -823,103 +889,158 @@ export default function PremiumChat() {
         {messages.map((msg) => {
           const isUser = msg.from === "user";
           const isEditing = editingId === msg.id;
+          const isJustSent = justSentId === msg.id;
 
           return (
             <div
               key={msg.id}
               className={`flex ${isUser ? "justify-end" : "justify-start"} group`}
             >
+              {/* Emoti avatar on left for emoti messages */}
+              {!isUser && (
+                <div className="mr-3 flex-shrink-0">
+                  <EmotiAvatar size={34} />
+                </div>
+              )}
+
               <div
-                className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap shadow-sm ${
-                  isUser
-                    ? "bg-amber-400/90 text-slate-950 rounded-br-sm"
-                    : "bg-slate-800/90 text-slate-50 rounded-bl-sm border border-amber-400/20"
-                }`}
+                // apply micro-animation when user just sent that message
+                style={
+                  isJustSent
+                    ? { animation: "send-vibrate 220ms ease-in-out" }
+                    : undefined
+                }
+                className={`max-w-[80%] text-sm whitespace-pre-wrap shadow-sm
+                  ${isUser ? "ml-4" : ""}
+                `}
               >
-                {msg.from === "emoti" && (
-                  <div className="text-[10px] uppercase tracking-wide text-amber-200 mb-1 flex items-center gap-1">
-                    <span>EMOTI</span>
-                    {msg.emotion && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-slate-900/70 border border-amber-300/40 lowercase">
-                        {msg.emotion}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* content / editor */}
-                {isEditing ? (
-                  <div className="flex flex-col gap-1">
-                    <textarea
-                      value={editingText}
-                      onChange={(e) => setEditingText(e.target.value)}
-                      rows={2}
-                      className="w-full text-xs bg-slate-900/80 border border-amber-300/40 rounded-lg px-2 py-1 text-slate-100"
-                    />
-                    <div className="flex justify-end gap-2 text-[10px] mt-1">
-                      <button
-                        onClick={handleCancelEdit}
-                        className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveEdit}
-                        className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-medium"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>{msg.text}</div>
-                )}
-
-                {/* time + edited + actions */}
-                {!isEditing && (
-                  <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
-                    <div
-                      className={`flex items-center gap-1 ${
-                        isUser ? "text-slate-900/70" : "text-slate-400"
-                      }`}
-                    >
-                      <span>{formatTime(msg.time)}</span>
-                      {msg.edited && (
-                        <span className="italic opacity-70">· edited</span>
+                <div
+                  className={`px-4 py-3 rounded-[20px] leading-relaxed break-words ${
+                    isUser
+                      ? "bg-amber-400/95 text-slate-950 rounded-bl-[20px] rounded-br-[6px] rounded-tl-[20px] rounded-tr-[20px]"
+                      : "bg-slate-800/90 text-slate-50 rounded-br-[20px] rounded-bl-[6px] rounded-tl-[20px] rounded-tr-[20px] border border-amber-400/12"
+                  }`}
+                  style={{ boxShadow: "0 6px 14px rgba(2,6,23,0.45)" }}
+                >
+                  {msg.from === "emoti" && (
+                    <div className="text-[10px] uppercase tracking-wide text-amber-200 mb-1 flex items-center gap-2">
+                      <span>EMOTI</span>
+                      {msg.emotion && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-slate-900/70 border border-amber-300/40 lowercase text-[10px]">
+                          {msg.emotion}
+                        </span>
                       )}
                     </div>
+                  )}
 
-                    {isUser && (
-                      <div className="flex items-center gap-2 text-slate-700 group-hover:text-slate-900/80">
+                  {/* content / editor */}
+                  {isEditing ? (
+                    <div className="flex flex-col gap-1">
+                      <textarea
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        rows={2}
+                        className="w-full text-xs bg-slate-900/80 border border-amber-300/40 rounded-lg px-2 py-1 text-slate-100"
+                      />
+                      <div className="flex justify-end gap-2 text-[10px] mt-1">
                         <button
-                          onClick={() => handleStartEdit(msg)}
-                          className="hover:text-emerald-700"
+                          onClick={handleCancelEdit}
+                          className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600"
                         >
-                          Edit
+                          Cancel
                         </button>
-                        <span className="w-[1px] h-3 bg-slate-500/70" />
                         <button
-                          onClick={() => handleDelete(msg.id)}
-                          className="hover:text-rose-700"
+                          onClick={handleSaveEdit}
+                          className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-medium"
                         >
-                          Delete
+                          Save
                         </button>
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  ) : (
+                    <div>{msg.text}</div>
+                  )}
+
+                  {/* time + edited + actions */}
+                  {!isEditing && (
+                    <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
+                      <div
+                        className={`flex items-center gap-1 ${
+                          isUser ? "text-slate-900/70" : "text-slate-400"
+                        }`}
+                      >
+                        <span>{formatTime(msg.time)}</span>
+                        {msg.edited && (
+                          <span className="italic opacity-70">· edited</span>
+                        )}
+                      </div>
+
+                      {isUser && (
+                        <div className="flex items-center gap-2 text-slate-700 group-hover:text-slate-900/80">
+                          <button
+                            onClick={() => handleStartEdit(msg)}
+                            className="hover:text-emerald-700"
+                          >
+                            Edit
+                          </button>
+                          <span className="w-[1px] h-3 bg-slate-500/70" />
+                          <button
+                            onClick={() => handleDelete(msg.id)}
+                            className="hover:text-rose-700"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
 
+        {/* Typing / loading indicator (Emoti avatar + pulse dots) */}
         {loading && (
-          <div className="flex justify-start mt-1">
-            <div className="bg-slate-800/90 border border-amber-400/20 px-3 py-2 rounded-2xl">
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:-0.2s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:-0.1s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" />
+          <div className="flex justify-start mt-1 items-center gap-3">
+            <div>
+              <EmotiAvatar size={28} />
+            </div>
+            <div className="bg-slate-800/90 border border-amber-400/20 px-4 py-2 rounded-[20px]">
+              <div className="flex items-center gap-2">
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.85)",
+                    display: "inline-block",
+                    animation: "dot-pulse 900ms infinite",
+                    animationDelay: "0ms",
+                  }}
+                />
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.85)",
+                    display: "inline-block",
+                    animation: "dot-pulse 900ms infinite",
+                    animationDelay: "150ms",
+                  }}
+                />
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.85)",
+                    display: "inline-block",
+                    animation: "dot-pulse 900ms infinite",
+                    animationDelay: "300ms",
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -927,36 +1048,77 @@ export default function PremiumChat() {
       </main>
 
       {/* INPUT + VOICE */}
-      <footer className="border-t border-amber-400/30 bg-slate-950/95 px-6 py-3">
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              rows={1}
-              placeholder="Write from your heart…"
-              className="flex-1 resize-none border border-slate-700 bg-slate-900/90 rounded-2xl px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-            />
+      <footer className="border-t border-amber-400/30 bg-slate-950/95 px-6 py-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            {/* upgraded white input */}
+            <div className="flex items-center gap-3 flex-1 bg-white rounded-2xl px-3 py-2 shadow-[0_6px_18px_rgba(2,6,23,0.35)]">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                rows={1}
+                placeholder="Write from your heart…"
+                className="flex-1 resize-none bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-500"
+              />
 
+              {/* mic button with glow while recording */}
+              <button
+                onClick={recording ? stopRecording : startRecording}
+                aria-pressed={recording}
+                className={`p-2 rounded-full transition-transform transform shadow-sm ${
+                  recording
+                    ? "bg-rose-600 text-white"
+                    : "bg-slate-100 text-slate-900"
+                }`}
+                style={{
+                  boxShadow: recording
+                    ? "0 8px 30px rgba(255,100,120,0.22)"
+                    : "0 6px 14px rgba(2,6,23,0.06)",
+                }}
+              >
+                {/* mic svg */}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z"
+                    fill={recording ? "#fff" : "#0f172a"}
+                    opacity="0.95"
+                  />
+                  <path
+                    d="M19 11v1a7 7 0 0 1-14 0v-1"
+                    stroke={recording ? "rgba(255,255,255,0.9)" : "#0f172a"}
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                  <path
+                    d="M12 19v3"
+                    stroke={recording ? "rgba(255,255,255,0.9)" : "#0f172a"}
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* send button */}
             <button
               onClick={sendMessage}
               disabled={loading}
-              className="bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-slate-950 px-5 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap"
+              className="px-4 py-2 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold shadow-md disabled:opacity-60 transform active:scale-95"
             >
               {loading ? "…" : "Send"}
             </button>
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <button
-              onClick={recording ? stopRecording : startRecording}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                recording ? "bg-rose-600 text-white" : "bg-purple-600 text-white"
-              }`}
-            >
-              {recording ? "Stop premium voice 🎙" : "Premium voice 🎤"}
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Tip:</span>
+              <span>Use voice or text — EMOTI listens either way.</span>
+            </div>
             <span>Premium space · do not share private info.</span>
           </div>
         </div>
