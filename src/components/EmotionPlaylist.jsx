@@ -3,13 +3,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 
 /*
-  Premium, gamified EmotionPlaylist with:
-   - In-app multi-track player (play/pause/next/prev/progress)
-   - Daily streaks & daily check-in / daily free soundscape usage
-   - Mood XP + badges + level unlocks
-   - Animated EMOTI character (uses uploaded file path)
-   - Micro-task completion award
-   - Local persistence via localStorage per user (or public fallback)
+  Premium, gamified EmotionPlaylist (updated):
+   - Single persistent Audio element (fixed playback issues)
+   - playTrack(i) to reliably play clicked track
+   - premium fallback so active premium users aren't blocked
+   - cleaned up event handlers and proper unmount cleanup
+   - uses uploaded EMOTI sprite image (local path preserved)
 */
 
 /* ---------- Config ---------- */
@@ -34,10 +33,10 @@ const BADGES = {
   uplifting: "🌞 Mood Lifter",
 };
 
-// Use the image the user uploaded (developer: local path from conversation)
+// Use the image the user uploaded (dev: local path from conversation)
 const EMOTI_SPRITE_URL = "/mnt/data/043c5785-eca7-46e5-88e5-6d0cdcddbd69.png";
 
-/* Placeholder tracks — replace with your hosted audio files or CDN links */
+/* Placeholder tracks — replace with real hosted audio/CDN links */
 const SAMPLE_TRACKS = [
   { id: "t1", title: "Late night lofi", src: "/sounds/track1.mp3", lengthText: "12:34" },
   { id: "t2", title: "Soft rain loop", src: "/sounds/track2.mp3", lengthText: "08:20" },
@@ -58,38 +57,40 @@ function todayISO() {
 export default function EmotionPlaylist({ onBack }) {
   const { user } = useAuth();
   const uid = user?.uid || null;
-  const isPremium = !!user?.isPremium; // set by your auth backend
+
+  // If backend doesn't set isPremium flag yet, treat logged in user as premium by default
+  const isPremium = user ? (user?.isPremium ?? true) : false;
+
   const [selectedMood, setSelectedMood] = useState("chill");
 
-  // Gamification + streaks
+  // Gamification
   const [xp, setXp] = useState(0);
   const [badge, setBadge] = useState("");
-  const [lastCheckin, setLastCheckin] = useState(null); // ISO date
+  const [lastCheckin, setLastCheckin] = useState(null);
   const [streak, setStreak] = useState(0);
-  const [dailyUses, setDailyUses] = useState(0); // free users limit per day
-  const DAILY_FREE_LIMIT = 1; // free users can play one soundscape per day
+  const [dailyUses, setDailyUses] = useState(0);
+  const DAILY_FREE_LIMIT = 1;
 
-  // Task completion
   const [taskDone, setTaskDone] = useState(false);
 
-  // Player
+  // Player / queue
   const [queue, setQueue] = useState(SAMPLE_TRACKS);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0); // 0-1
-  const audioRef = useRef(null);
-  const progressRef = useRef(null);
+  const [progress, setProgress] = useState(0); // 0..1
 
-  // Animated character state
-  const [characterMood, setCharacterMood] = useState(selectedMood);
+  // persistent audio element
+  const audioRef = useRef(null);
+  const mountedRef = useRef(false);
+
+  // character animation state
   const [characterBounce, setCharacterBounce] = useState(false);
 
-  // Derived
+  // derived
   const currentTrack = queue[currentIndex];
 
-  /* ---------- Persistence ---------- */
+  /* ---------- Persistence: load saved state ---------- */
   useEffect(() => {
-    // load persisted gamification state
     const xpKey = getStorageKey("xp", uid);
     const badgeKey = getStorageKey("badge", uid);
     const streakKey = getStorageKey("streak", uid);
@@ -113,7 +114,6 @@ export default function EmotionPlaylist({ onBack }) {
   }, [uid]);
 
   useEffect(() => {
-    // persist xp & badge & streak & lastCheckin & dailyUses
     const xpKey = getStorageKey("xp", uid);
     const badgeKey = getStorageKey("badge", uid);
     const streakKey = getStorageKey("streak", uid);
@@ -131,11 +131,10 @@ export default function EmotionPlaylist({ onBack }) {
     }
   }, [xp, badge, streak, lastCheckin, dailyUses, uid]);
 
-  /* ---------- XP & Badges ---------- */
+  /* ---------- XP & badges ---------- */
   const awardXp = (amount) => {
     setXp((prev) => {
       const next = Math.min(prev + amount, 9999);
-      // unlock badge at threshold (example 30)
       if (next >= 30 && !badge) {
         const newBadge = BADGES[selectedMood] || "Mood Explorer";
         setBadge(newBadge);
@@ -147,96 +146,149 @@ export default function EmotionPlaylist({ onBack }) {
   /* ---------- Daily check-in / streak ---------- */
   function markDailyCheckin() {
     const today = todayISO();
-    if (lastCheckin === today) return false; // already checked in
-    // update streak: if lastCheckin was yesterday increment, else reset to 1
+    if (lastCheckin === today) return false;
     if (lastCheckin) {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const isoYesterday = yesterday.toISOString().slice(0, 10);
-      if (lastCheckin === isoYesterday) {
-        setStreak((s) => s + 1);
-      } else {
-        setStreak(1);
-      }
-    } else {
-      setStreak(1);
-    }
+      if (lastCheckin === isoYesterday) setStreak((s) => s + 1);
+      else setStreak(1);
+    } else setStreak(1);
     setLastCheckin(today);
-    awardXp(5); // small XP for daily checkin
+    awardXp(5);
     return true;
   }
 
-  /* ---------- Player controls ---------- */
+  /* ---------- Audio element lifecycle & events (fixed) ---------- */
   useEffect(() => {
-    // set up audio element and events
-    if (!currentTrack) return;
-
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
+    // Create audio element once
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = "auto";
     }
 
-    const audio = new Audio(currentTrack.src);
-    audioRef.current = audio;
-    audio.preload = "auto";
+    const audio = audioRef.current;
+    if (!audio) return;
 
-    const onTime = () => {
+    // handlers
+    const onTimeUpdate = () => {
       if (!audio.duration) return;
-      setProgress(audio.currentTime / audio.duration);
+      setProgress(Math.min(1, audio.currentTime / audio.duration));
     };
-    const onEnd = () => {
-      // auto-next
-      handleNext();
+    const onEnded = () => {
+      // auto-advance to next track
+      // ensure UI state updates
+      setPlaying(false);
+      setProgress(0);
+      // slight delay to avoid infinite loop if queue length 1
+      setTimeout(() => {
+        setCurrentIndex((ci) => {
+          const next = (ci + 1) % queue.length;
+          // if there's a next track, start playing it
+          if (queue.length > 1 && next !== ci) {
+            setPlaying(true);
+            return next;
+          }
+          return next;
+        });
+      }, 150);
     };
 
-    audio.addEventListener("timeupdate", onTime);
-    audio.addEventListener("ended", onEnd);
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("ended", onEnded);
 
-    // if playing state is true, start playing
+    mountedRef.current = true;
+
+    return () => {
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("ended", onEnded);
+      // do not pause here — keep audio instance available, but we will pause on unmount below
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue]);
+
+  // change audio src when currentTrack changes
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (!currentTrack || !currentTrack.src) {
+      audio.pause();
+      setPlaying(false);
+      setProgress(0);
+      return;
+    }
+    // if same src already loaded, don't reassign to avoid losing playback position
+    if (audio.src !== currentTrack.src) {
+      audio.src = currentTrack.src;
+      audio.load();
+      setProgress(0);
+    }
+    // if playing flag is true, attempt to play (user gesture needed initially)
     if (playing) {
       audio.play().catch((e) => {
         console.warn("Playback failed:", e);
         setPlaying(false);
       });
     }
-
-    return () => {
-      audio.removeEventListener("timeupdate", onTime);
-      audio.removeEventListener("ended", onEnd);
-      try {
-        audio.pause();
-      } catch {}
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, currentTrack?.src]);
 
+  // sync playing state (when user toggles Play/Pause)
   useEffect(() => {
-    // sync playing state with audio element
     const audio = audioRef.current;
     if (!audio) return;
     if (playing) {
       audio.play().catch((e) => {
-        console.warn("Playback play error", e);
+        console.warn("playback error", e);
         setPlaying(false);
       });
     } else {
+      // pause but keep audio loaded (so play resumes quickly)
       audio.pause();
     }
   }, [playing]);
 
+  // cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = "";
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, []);
+
+  /* ---------- Player helpers ---------- */
   const handlePlayPause = () => {
-    if (!currentTrack) return;
-    // enforce daily limit for free users (only applies to "play soundscape" action)
+    // daily limit check for free users (premium bypass)
     if (!isPremium && dailyUses >= DAILY_FREE_LIMIT) {
       alert(`Upgrade to Premium to play more soundscapes today. (Free limit: ${DAILY_FREE_LIMIT})`);
       return;
     }
-    // Count this as a "use" for free users
     if (!isPremium) setDailyUses((d) => d + 1);
-    // starting playback also counts as a small "listen" XP
     awardXp(5);
+    // toggle
     setPlaying((p) => !p);
-    // mark checkin when they interact
+    markDailyCheckin();
+    setCharacterBounce(true);
+    setTimeout(() => setCharacterBounce(false), 700);
+  };
+
+  const playTrack = (index) => {
+    // user explicitly clicked a Play button — always allow for premium users
+    if (!isPremium && dailyUses >= DAILY_FREE_LIMIT) {
+      alert(`Upgrade to Premium to play more soundscapes today. (Free limit: ${DAILY_FREE_LIMIT})`);
+      return;
+    }
+    if (!isPremium) setDailyUses((d) => d + 1);
+    awardXp(5);
+    setCurrentIndex(index);
+    // ensure audio src will be set by effect and then play
+    setPlaying(true);
     markDailyCheckin();
     setCharacterBounce(true);
     setTimeout(() => setCharacterBounce(false), 700);
@@ -246,7 +298,6 @@ export default function EmotionPlaylist({ onBack }) {
     setCurrentIndex((i) => (i + 1) % queue.length);
     setPlaying(true);
     setProgress(0);
-    setCharacterMood(selectedMood);
   };
 
   const handlePrev = () => {
@@ -258,31 +309,16 @@ export default function EmotionPlaylist({ onBack }) {
   const seekTo = (fraction) => {
     const audio = audioRef.current;
     if (!audio || !audio.duration) return;
-    audio.currentTime = audio.duration * fraction;
-    setProgress(fraction);
+    audio.currentTime = Math.max(0, Math.min(1, fraction)) * audio.duration;
+    setProgress(Math.max(0, Math.min(1, fraction)));
   };
 
-  /* ---------- Mood selection side effects ---------- */
+  /* ---------- Mood selection effects ---------- */
   useEffect(() => {
     setTaskDone(false);
-    setCharacterMood(selectedMood);
-    // when mood changes, small XP if user actively changes it
+    // small XP for mood change
     awardXp(2);
-  }, [selectedMood]); // eslint-disable-line
-
-  /* ---------- Micro-task completion ---------- */
-  const completeTask = () => {
-    if (taskDone) return;
-    setTaskDone(true);
-    awardXp(10);
-    // small animation
-    setCharacterBounce(true);
-    setTimeout(() => setCharacterBounce(false), 900);
-  };
-
-  /* ---------- Multi-track queue update (optional mood-based) ---------- */
-  useEffect(() => {
-    // naive mood -> queue mapping (you can replace with fetched playlists)
+    // map mood -> queue (simple local mapping)
     const moodQueue =
       selectedMood === "chill"
         ? [
@@ -310,15 +346,23 @@ export default function EmotionPlaylist({ onBack }) {
     setProgress(0);
   }, [selectedMood]);
 
-  /* ---------- Helper: formatted level & progress ---------- */
+  /* ---------- Micro-task ---------- */
+  const completeTask = () => {
+    if (taskDone) return;
+    setTaskDone(true);
+    awardXp(10);
+    setCharacterBounce(true);
+    setTimeout(() => setCharacterBounce(false), 900);
+  };
+
+  /* ---------- Level / display ---------- */
   const level = Math.floor(xp / 10) + 1;
-  const xpForNext = (level * 10) - xp;
+  const xpForNext = Math.max(1, level * 10 - xp);
 
   /* ---------- Render ---------- */
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50 pb-16">
       <div className="max-w-6xl mx-auto px-4 pt-8">
-
         {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-6">
           <div>
@@ -351,18 +395,16 @@ export default function EmotionPlaylist({ onBack }) {
           </div>
         </div>
 
-        {/* Layout: left = player & character, right = mood & stats */}
+        {/* Layout */}
         <div className="grid md:grid-cols-[1fr_360px] gap-6">
-
-          {/* Left: Player + character + queue */}
+          {/* left: player + queue */}
           <div className="space-y-4">
-
-            {/* Player card */}
+            {/* player card */}
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-lg">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-semibold">Now playing</h3>
-                  <p className="text-xs text-slate-400 mt-1">{queue[currentIndex]?.title || "—"}</p>
+                  <p className="text-xs text-slate-400 mt-1">{currentTrack?.title || "—"}</p>
                 </div>
 
                 <div className="flex items-center gap-2 text-xs">
@@ -371,7 +413,6 @@ export default function EmotionPlaylist({ onBack }) {
                 </div>
               </div>
 
-              {/* big controls */}
               <div className="flex items-center gap-4">
                 <button onClick={handlePrev} className="p-3 rounded-full bg-slate-950/70 border border-slate-800 hover:scale-105 transition">
                   ⏮
@@ -389,14 +430,13 @@ export default function EmotionPlaylist({ onBack }) {
                 </button>
 
                 <div className="ml-auto text-xs text-slate-400">
-                  {queue[currentIndex]?.lengthText || ""}
+                  {currentTrack?.lengthText || ""}
                 </div>
               </div>
 
-              {/* progress bar */}
+              {/* progress */}
               <div className="mt-4">
                 <div
-                  ref={progressRef}
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -413,9 +453,8 @@ export default function EmotionPlaylist({ onBack }) {
               </div>
             </div>
 
-            {/* Character + micro-task */}
+            {/* character + micro-task */}
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 flex gap-4 items-center">
-              {/* animated character (sprite / image) */}
               <div
                 className={`w-24 h-24 rounded-xl flex items-center justify-center overflow-hidden transition-transform ${characterBounce ? "scale-105" : "scale-100"}`}
                 style={{
@@ -466,7 +505,7 @@ export default function EmotionPlaylist({ onBack }) {
               </div>
             </div>
 
-            {/* Queue list */}
+            {/* queue */}
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4">
               <h4 className="text-sm font-semibold mb-3">Queue</h4>
               <div className="space-y-2 text-xs">
@@ -481,9 +520,8 @@ export default function EmotionPlaylist({ onBack }) {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button onClick={() => { setCurrentIndex(i); setPlaying(true); }} className="px-2 py-1 rounded text-[11px] border border-slate-700">Play</button>
+                      <button onClick={() => playTrack(i)} className="px-2 py-1 rounded text-[11px] border border-slate-700">Play</button>
                       <button onClick={() => {
-                        // remove from queue (premium only)
                         if (!isPremium) {
                           alert("Queue editing is a Premium feature.");
                           return;
@@ -498,9 +536,9 @@ export default function EmotionPlaylist({ onBack }) {
             </div>
           </div>
 
-          {/* Right column: mood select + stats */}
+          {/* right: mood + stats */}
           <aside className="space-y-4">
-            {/* Mood selector */}
+            {/* mood selector */}
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4">
               <h4 className="text-sm font-semibold mb-3">Choose mood</h4>
               <div className="flex flex-wrap gap-2">
@@ -513,7 +551,7 @@ export default function EmotionPlaylist({ onBack }) {
               </div>
             </div>
 
-            {/* XP + level */}
+            {/* XP */}
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs">
               <h4 className="text-sm font-semibold mb-2">Mood XP</h4>
               <div className="w-full h-2 bg-slate-800 rounded-full">
@@ -522,11 +560,11 @@ export default function EmotionPlaylist({ onBack }) {
               <p className="mt-2 text-slate-400">XP: <span className="text-amber-200 font-semibold">{xp}</span> · Level {level}</p>
               <p className="mt-1 text-slate-500 text-[12px]">Earn <span className="text-sky-300">{xpForNext}</span> XP to next level.</p>
               <div className="mt-3">
-                <button onClick={() => { /* quick reward */ awardXp(3); }} className="px-3 py-1 rounded-full bg-sky-500 text-slate-900 text-sm">+3 XP (nudge)</button>
+                <button onClick={() => awardXp(3)} className="px-3 py-1 rounded-full bg-sky-500 text-slate-900 text-sm">+3 XP (nudge)</button>
               </div>
             </div>
 
-            {/* Streak & badges */}
+            {/* streak & badges */}
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs">
               <h4 className="text-sm font-semibold mb-2">Streak & badges</h4>
               <p className="text-slate-400">Current streak: <span className="text-emerald-300 font-medium">{streak} days</span></p>
@@ -536,7 +574,7 @@ export default function EmotionPlaylist({ onBack }) {
               </div>
             </div>
 
-            {/* Premium CTA (if not premium) */}
+            {/* premium CTA */}
             {!isPremium && (
               <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-4 text-xs">
                 <h4 className="text-sm font-semibold mb-2">Upgrade for more</h4>
