@@ -13,6 +13,48 @@ import PremiumHomepage from "./components/PremiumHomepage";
 import SupportSection from "./components/SupportSection";
 import SupportFab from "./components/SupportFab";
 
+/**
+ * EmotiAvatar
+ * - Reusable small mascot/avatar for EMOTI
+ * - Default calming gradient (violet → bluish)
+ * - Accepts `size` prop (px) and optional `className`
+ */
+function EmotiAvatar({ size = 28, className = "" }) {
+  const s = typeof size === "number" ? `${size}px` : size;
+  return (
+    <div
+      className={`rounded-full flex items-center justify-center shadow-sm ${className}`}
+      style={{
+        width: s,
+        height: s,
+        // fallback background for non-Tailwind environments (kept for extra safety)
+        background:
+          "linear-gradient(135deg, rgba(139,92,246,0.95) 0%, rgba(56,189,248,0.9) 100%)",
+      }}
+      aria-hidden="true"
+    >
+      {/* inner circle to create ring effect and place emoji */}
+      <div
+        style={{
+          width: `calc(${s} - 6px)`,
+          height: `calc(${s} - 6px)`,
+          borderRadius: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background:
+            "linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,255,255,0.86))",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+        }}
+      >
+        <span style={{ fontSize: Math.max(10, Math.round(size / 2.6)) }}>
+          🙂
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const chatRef = useRef(null);
   const { user, isPremium, logout, loginWithGoogle } = useAuth();
@@ -94,14 +136,15 @@ export default function App() {
           {/* Logo + identity */}
           <div className="flex items-center gap-3">
             <div className="relative flex items-center" aria-hidden>
-              {/* animated gradient ring */}
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-sky-500/30 via-violet-500/20 to-rose-500/20 blur-md opacity-60 animate-[pulse_6s_infinite]" />
+              {/* animated gradient ring (tailwind animation util via inline style for broader compatibility) */}
+              <div className="absolute -inset-1 rounded-2xl blur-md opacity-60" style={{
+                background: "linear-gradient(135deg, rgba(56,189,248,0.28), rgba(139,92,246,0.18))",
+                animation: "pulse 6s infinite"
+              }} />
 
               <div className="relative w-11 h-11 rounded-3xl bg-slate-950 border border-slate-700 flex items-center justify-center shadow-sm">
-                {/* inner logo circle */}
-                <div className="w-8 h-8 rounded-2xl bg-gradient-to-br from-sky-400 via-violet-500 to-rose-400 flex items-center justify-center text-[14px] font-bold text-slate-950 shadow-md transform transition-transform duration-300 hover:scale-105">
-                  🙂
-                </div>
+                {/* inner logo circle uses EmotiAvatar for consistent mascot */}
+                <EmotiAvatar size={36} />
               </div>
             </div>
 
@@ -135,7 +178,7 @@ export default function App() {
 
             {/* subtle welcome container (rounded) */}
             <div className="hidden sm:flex items-center bg-slate-900/60 border border-slate-800 rounded-full px-3 py-1 gap-3">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px]">🙂</div>
+              <EmotiAvatar size={22} />
               <div className="flex flex-col leading-tight">
                 <span className="text-xs text-slate-200">Hi{user?.displayName ? `, ${user.displayName.split(' ')[0]}` : ''}</span>
                 <span className="text-[10px] text-slate-400">{user ? 'You have premium access' : 'Try Emoti — start chatting'}</span>
@@ -260,9 +303,7 @@ export default function App() {
                 {/* Small strip above the chat */}
                 <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[11px] text-slate-400 max-w-4xl mx-auto">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px]">
-                      🙂
-                    </div>
+                    <EmotiAvatar size={28} />
                     <span className="font-medium text-slate-200">EMOTI · Premium mode</span>
                   </div>
                   {user && (
@@ -433,7 +474,7 @@ export default function App() {
 
                     {/* Chat header */}
                     <div className="px-4 py-2 border-y border-slate-700/70 bg-slate-950/90 flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[11px] font-bold">🙂</div>
+                      <EmotiAvatar size={28} />
                       <div className="flex flex-col">
                         <span className="text-xs font-medium">EMOTI</span>
                         <span className="text-[10px] text-slate-400">“Tell me everything, I’m listening.”</span>
@@ -512,7 +553,7 @@ export default function App() {
               {/* premium teaser row */}
               <div className="mt-8 rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                 <div className="text-sm">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-amber-400/10 border border-amber-400/50 px-3 py-1 text-[11px] text-amber-300 mb-2">⭐ EMOTI Premium</div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-amber-400/10 border border-amber-400/50 px-3 py-1 text-[11px] text-amber-300 mb-2"><EmotiAvatar size={20} /> <span>⭐ EMOTI Premium</span></div>
                   <p className="text-slate-200">Unlock deeper emotional analysis, mood tracking, and AI image reflections of your feelings — designed to make your journaling and healing more visual.</p>
                 </div>
                 {user && !isPremium && (
@@ -535,7 +576,7 @@ export default function App() {
                 {/* top strip with small avatars */}
                 <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[11px] text-slate-400">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-[10px]">🙂</div>
+                    <EmotiAvatar size={22} />
                     <span className="font-medium text-slate-200">EMOTI chatroom</span>
                     <span className="hidden sm:inline text-slate-500">Your messages may be used to improve the AI. Avoid sharing private details.</span>
                   </div>
@@ -546,7 +587,7 @@ export default function App() {
                         <img src={user.photoURL} alt="You" className="w-6 h-6 rounded-full border border-slate-600 object-cover" referrerPolicy="no-referrer" />
                       ) : (
                         <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[10px] font-semibold">{userInitial}</div>
-                      )}
+                      )} 
                       <span className="max-w-[120px] truncate text-slate-200 text-[11px]">{user.displayName || user.email}</span>
                     </div>
                   )}
@@ -554,7 +595,7 @@ export default function App() {
 
                 {/* glassmorphism container for actual Chat */}
                 <div className="rounded-3xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl shadow-xl shadow-black/40 p-3 md:p-4">
-                  <Chat />
+                  <Chat emotiAvatar={<EmotiAvatar size={26} />} />
                 </div>
               </div>
 
